@@ -1,0 +1,21 @@
+# venv
+.venv/
+backend/.venv/
+
+# IDE
+.idea/
+
+# Python caches
+__pycache__/
+*.pyc
+
+# build artifacts
+*.egg-info/
+dist/
+build/
+
+# local databases
+*.db
+
+# env
+.env
