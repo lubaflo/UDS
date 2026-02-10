@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tg-uds-admin-backend"
+version = "0.1.0"
+description = "Backend for Telegram Admin Panel (UDS-like) for beauty booking"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.110",
+  "uvicorn[standard]>=0.27",
+  "pydantic>=2.6",
+  "pydantic-settings>=2.2",
+  "SQLAlchemy>=2.0.25",
+  "alembic>=1.13",
+  "python-jose[cryptography]>=3.3",
+  "python-multipart>=0.0.9",
+]
+
+[tool.setuptools]
+package-dir = {"" = "app"}
+
+[tool.setuptools.packages.find]
+where = ["app"]
+include = ["*"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
