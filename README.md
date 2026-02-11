@@ -28,6 +28,9 @@
 - `GET /api/v1/admin/products/{product_id}/stock` — остатки по складам/точкам
 - `GET /api/v1/admin/products/movements`, `POST /api/v1/admin/products/{product_id}/movements` — движение товаров
 - `GET/POST/PUT /api/v1/admin/campaigns` — рассылки
+- `GET/POST/PUT /api/v1/admin/news` — новости компании (лента публикаций)
+- `POST /api/v1/admin/news/track` — трекинг событий по новости (view/transition/click/add_to_cart/booking/purchase)
+- `GET /api/v1/admin/news/{news_post_id}/stats` — статистика по конкретной новости
 - `GET/POST /api/v1/admin/communications` — раздел рассылок (активные/архив, создание кампаний)
 - `POST /api/v1/admin/communications/{campaign_id}/launch` — запуск рассылки по базе с согласиями
 - `GET /api/v1/admin/communications/{campaign_id}/stats` — open/click/conversion статистика кампании

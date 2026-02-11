@@ -12,6 +12,7 @@ from app.api.v1.admin import (
     dashboard,
     feedback,
     messages,
+    news,
     operations,
     products,
     security,
@@ -30,6 +31,7 @@ router.include_router(analytics.router)
 router.include_router(operations.router)
 router.include_router(clients.router)
 router.include_router(messages.router)
+router.include_router(news.router)
 router.include_router(campaigns.router)
 router.include_router(communications.router)
 router.include_router(feedback.router)
