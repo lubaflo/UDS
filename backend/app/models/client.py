@@ -17,6 +17,10 @@ class Client(Base):
     full_name: Mapped[str] = mapped_column(String(200), nullable=False)
     phone: Mapped[str] = mapped_column(String(32), nullable=False, default="")
     email: Mapped[str] = mapped_column(String(254), nullable=False, default="")
+    vk_username: Mapped[str] = mapped_column(String(128), nullable=False, default="")
+    instagram_username: Mapped[str] = mapped_column(String(128), nullable=False, default="")
+    facebook_username: Mapped[str] = mapped_column(String(128), nullable=False, default="")
+    max_username: Mapped[str] = mapped_column(String(128), nullable=False, default="")
     address: Mapped[str] = mapped_column(String(400), nullable=False, default="")
 
     consent_personal_data: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

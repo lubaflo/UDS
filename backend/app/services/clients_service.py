@@ -46,6 +46,10 @@ def client_to_dict(db: Session, row: Client) -> dict:
         "full_name": row.full_name,
         "phone": row.phone,
         "email": row.email,
+        "vk_username": row.vk_username,
+        "instagram_username": row.instagram_username,
+        "facebook_username": row.facebook_username,
+        "max_username": row.max_username,
         "address": row.address,
         "status": row.status,
         "notes": row.notes,
@@ -76,6 +80,10 @@ def list_clients(db: Session, *, salon_id: int, query: str | None, page: int, pa
                 Client.notes.ilike(like),
                 Client.address.ilike(like),
                 Client.username.ilike(like),
+                Client.vk_username.ilike(like),
+                Client.instagram_username.ilike(like),
+                Client.facebook_username.ilike(like),
+                Client.max_username.ilike(like),
             )
         )
     q = q.order_by(Client.id.desc())
@@ -90,6 +98,42 @@ def get_client(db: Session, *, salon_id: int, client_id: int) -> Client:
     ).scalar_one()
 
 
+def get_or_create_client_by_tg_id(
+    db: Session,
+    *,
+    salon_id: int,
+    tg_id: int,
+    username: str,
+    full_name: str,
+) -> Client:
+    row = db.execute(select(Client).where(Client.salon_id == salon_id, Client.tg_id == tg_id)).scalar_one_or_none()
+    if row:
+        if username and row.username != username:
+            row.username = username
+        if full_name and row.full_name != full_name:
+            row.full_name = full_name
+        return row
+
+    row = Client(
+        salon_id=salon_id,
+        tg_id=tg_id,
+        username=username,
+        full_name=full_name or f"Telegram {tg_id}",
+    )
+    db.add(row)
+    db.flush()
+    db.add(
+        ClientAnalytics(
+            salon_id=salon_id,
+            client_id=row.id,
+            created_at=int(time.time()),
+            gender="unknown",
+            birth_year=None,
+        )
+    )
+    return row
+
+
 def create_client(
     db: Session,
     *,
@@ -100,6 +144,10 @@ def create_client(
     full_name: str,
     phone: str,
     email: str,
+    vk_username: str,
+    instagram_username: str,
+    facebook_username: str,
+    max_username: str,
     address: str,
     notes: str,
     tags: list[str],
@@ -119,6 +167,10 @@ def create_client(
         full_name=full_name,
         phone=phone,
         email=email,
+        vk_username=vk_username,
+        instagram_username=instagram_username,
+        facebook_username=facebook_username,
+        max_username=max_username,
         address=address,
         notes=notes,
         tags_csv=_tags_to_csv(tags),
@@ -163,6 +215,10 @@ def update_client(
     full_name: str | None,
     phone: str | None,
     email: str | None,
+    vk_username: str | None,
+    instagram_username: str | None,
+    facebook_username: str | None,
+    max_username: str | None,
     address: str | None,
     status: str | None,
     notes: str | None,
@@ -195,6 +251,10 @@ def update_client(
         "full_name": full_name,
         "phone": phone,
         "email": email,
+        "vk_username": vk_username,
+        "instagram_username": instagram_username,
+        "facebook_username": facebook_username,
+        "max_username": max_username,
         "address": address,
         "status": status,
         "notes": notes,

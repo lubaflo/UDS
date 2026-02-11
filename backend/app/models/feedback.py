@@ -14,6 +14,8 @@ class Feedback(Base):
     client_id: Mapped[int | None] = mapped_column(ForeignKey("clients.id", ondelete="SET NULL"), nullable=True)
 
     feedback_type: Mapped[str] = mapped_column(String(24), nullable=False, default="rating")
+    object_type: Mapped[str] = mapped_column(String(24), nullable=False, default="service")
+    object_id: Mapped[int | None] = mapped_column(nullable=True)
     rating: Mapped[int | None] = mapped_column(nullable=True)
     text: Mapped[str] = mapped_column(String(2000), nullable=False, default="")
     status: Mapped[str] = mapped_column(String(24), nullable=False, default="new")

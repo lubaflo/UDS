@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.v1 import auth, health
+from app.api.v1 import auth, feedback as app_feedback, health
 from app.api.v1.admin import (
     analytics,
     campaigns,
@@ -23,6 +23,7 @@ router = APIRouter(prefix="/api/v1")
 
 router.include_router(auth.router)
 router.include_router(health.router)
+router.include_router(app_feedback.router)
 
 router.include_router(dashboard.router)
 router.include_router(analytics.router)

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_roles
+from app.models import Client
 from app.schemas.messages import (
     DialogueHistoryResponse,
     DialogueItem,
@@ -28,10 +30,12 @@ def get_dialogues(
     items = [
         DialogueItem(
             client_id=r[0],
-            client_name=r[1] or "",
-            client_phone=r[2] or "",
-            last_message_at=int(r[3] or 0),
-            last_message_text=r[4] or "",
+            client_tg_id=r[1],
+            client_name=r[2] or "",
+            client_phone=r[3] or "",
+            last_message_at=int(r[4] or 0),
+            last_message_text=r[5] or "",
+            last_message_channel=r[6] or "telegram",
         )
         for r in rows
     ]
@@ -44,9 +48,21 @@ def get_dialogue(
     ctx=Depends(require_roles("owner", "admin", "operator")),
     db: Session = Depends(get_db),
 ) -> DialogueHistoryResponse:
+    client = db.execute(select(Client).where(Client.salon_id == ctx.salon_id, Client.id == client_id)).scalar_one()
     rows = get_dialogue_history(db, salon_id=ctx.salon_id, client_id=client_id)
-    items = [MessageOut(id=x.id, direction=x.direction, text=x.text, created_at=x.created_at) for x in rows]
-    return DialogueHistoryResponse(client_id=client_id, items=items)
+    items = [
+        MessageOut(
+            id=x.id,
+            direction=x.direction,
+            channel=x.channel,
+            text=x.text,
+            subject=x.subject,
+            destination=x.destination,
+            created_at=x.created_at,
+        )
+        for x in rows
+    ]
+    return DialogueHistoryResponse(client_id=client_id, client_tg_id=client.tg_id, items=items)
 
 
 @router.post("/{client_id}/send", response_model=MessageOut)
@@ -61,6 +77,16 @@ def post_send(
         salon_id=ctx.salon_id,
         actor_user_id=ctx.user_id,
         client_id=client_id,
+        channel=req.channel,
+        subject=req.subject,
         text=req.text,
     )
-    return MessageOut(id=row.id, direction=row.direction, text=row.text, created_at=row.created_at)
+    return MessageOut(
+        id=row.id,
+        direction=row.direction,
+        channel=row.channel,
+        text=row.text,
+        subject=row.subject,
+        destination=row.destination,
+        created_at=row.created_at,
+    )
