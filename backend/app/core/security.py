@@ -45,6 +45,9 @@ def verify_telegram_init_data(init_data: str, max_age_seconds: int = 60 * 60 * 2
 
     data_check_string = "\n".join([f"{k}={v}" for k, v in sorted(pairs.items(), key=lambda x: x[0])])
 
+    if not settings.TELEGRAM_BOT_TOKEN:
+        raise SecurityError("TELEGRAM_BOT_TOKEN is not configured")
+
     secret_key = _build_telegram_secret_key(settings.TELEGRAM_BOT_TOKEN)
     computed_hash = hmac.new(secret_key, data_check_string.encode("utf-8"), hashlib.sha256).hexdigest()
 

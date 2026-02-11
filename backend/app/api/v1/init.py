@@ -1,11 +1,3 @@
-from fastapi import APIRouter
+from app.api.v1 import router
 
-from app.api.v1 import auth, health
-from app.api.v1.admin import clients, messages, security
-
-router = APIRouter()
-router.include_router(auth.router)
-router.include_router(clients.router)
-router.include_router(messages.router)
-router.include_router(security.router)
-router.include_router(health.router)
+__all__ = ["router"]

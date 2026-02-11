@@ -1,1 +1,1 @@
-# namespace package for admin routers
+# admin routers package

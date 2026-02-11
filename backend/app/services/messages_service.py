@@ -32,7 +32,7 @@ def list_dialogues(
     q = (
         select(
             Client.id,
-            Client.name,
+            Client.full_name,
             Client.phone,
             base.c.last_ts,
             Message.text,
@@ -45,7 +45,7 @@ def list_dialogues(
 
     if query:
         like = f"%{query.strip()}%"
-        q = q.where((Client.name.ilike(like)) | (Client.phone.ilike(like)) | (Message.text.ilike(like)))
+        q = q.where((Client.full_name.ilike(like)) | (Client.phone.ilike(like)) | (Message.text.ilike(like)))
 
     total = db.execute(select(func.count()).select_from(q.subquery())).scalar_one()
     rows = db.execute(q.offset((page - 1) * page_size).limit(page_size)).all()

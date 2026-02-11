@@ -1,0 +1,13 @@
+services:
+  uds-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: uds-backend
+    env_file:
+      - backend/.env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
