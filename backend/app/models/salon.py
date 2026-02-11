@@ -14,3 +14,5 @@ class Salon(Base):
     timezone: Mapped[str] = mapped_column(String(64), nullable=False, default="Europe/Moscow")
     locale: Mapped[str] = mapped_column(String(16), nullable=False, default="ru")
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    subscription_ends_at: Mapped[int | None] = mapped_column(nullable=True)
+    moderation_status: Mapped[str] = mapped_column(String(32), nullable=False, default="in_review")

@@ -3,13 +3,37 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.api.v1 import auth, health
-from app.api.v1.admin import clients, messages, security
+from app.api.v1.admin import (
+    analytics,
+    campaigns,
+    communications,
+    certificates,
+    clients,
+    dashboard,
+    feedback,
+    messages,
+    operations,
+    products,
+    security,
+    system_settings,
+    traffic,
+)
 
 router = APIRouter(prefix="/api/v1")
 
 router.include_router(auth.router)
 router.include_router(health.router)
 
+router.include_router(dashboard.router)
+router.include_router(analytics.router)
+router.include_router(operations.router)
 router.include_router(clients.router)
 router.include_router(messages.router)
+router.include_router(campaigns.router)
+router.include_router(communications.router)
+router.include_router(feedback.router)
+router.include_router(products.router)
+router.include_router(certificates.router)
+router.include_router(traffic.router)
 router.include_router(security.router)
+router.include_router(system_settings.router)
