@@ -32,6 +32,8 @@
 - `GET/PUT /api/v1/admin/communications/reminders/rules` — автонапоминания о записи (1ч/4ч/1д/1нед)
 - `POST /api/v1/admin/communications/appointments` — создание записи клиента
 - `POST /api/v1/admin/communications/reminders/run` — обработчик автоматических напоминаний
+- `POST /api/v1/feedback/app/rating` — клиент из Telegram Mini App ставит оценку товару/услуге
+- `POST /api/v1/feedback/app/message` — клиент пишет администратору, диалог сохраняется по клиенту
 - `POST /api/v1/admin/communications/workflows` — старт мастера рассылки (Шаг 1)
 - `PUT /api/v1/admin/communications/workflows/{campaign_id}/step-1-audience` — Шаг 1: аудитория
 - `PUT /api/v1/admin/communications/workflows/{campaign_id}/step-2-content` — Шаг 2: контент/цепочка
@@ -39,7 +41,7 @@
 - `GET /api/v1/admin/communications/workflows/{campaign_id}/step-4-confirmation` — Шаг 4: подтверждение
 - `POST /api/v1/admin/communications/workflows/{campaign_id}/step-4-confirm` — Шаг 4: запуск
 - `GET /api/v1/admin/communications/workflows/{campaign_id}/step-5-stats` — Шаг 5: статистика
-- `GET/POST /api/v1/admin/feedback` — обратная связь
+- `GET/POST /api/v1/admin/feedback` — обратная связь (оценки/жалобы/предложения по товару или услуге)
 - `GET/POST /api/v1/admin/certificates` — сертификаты
 - `GET/POST /api/v1/admin/traffic-channels` — источники трафика
 - `GET/PUT /api/v1/admin/system-settings` — системные настройки (экран "Системные настройки")
@@ -98,3 +100,11 @@ docker compose up --build
 - `consent_marketing` — согласие на маркетинговые рассылки.
 - Канальные согласия: `consent_sms`, `consent_app_push`, `consent_email`.
 - Рассылка отправляется только клиентам, у которых есть `consent_personal_data` + нужные маркетинговые/канальные согласия.
+
+
+## Диалоги и обратная связь
+- Входящие сообщения клиента и ответы админа сохраняются в `messages` на всю историю клиента.
+- Привязка клиента выполняется по `tg_id` (Telegram ID).
+- При первом сообщении/оценке из Mini App клиент автоматически создаётся в базе и дальше переиспользуется.
+- Для исходящих сообщений админа поддержаны каналы: `telegram`, `sms`, `email`, `vk`, `instagram`, `facebook`, `max`.
+- В карточке клиента добавлены контактные поля для VK/Instagram/Facebook/MAX.

@@ -10,6 +10,10 @@ class ClientOut(BaseModel):
     full_name: str
     phone: str
     email: str
+    vk_username: str
+    instagram_username: str
+    facebook_username: str
+    max_username: str
     address: str
     status: str
     notes: str
@@ -52,6 +56,10 @@ class ClientCreateRequest(_EmailMixin):
     full_name: str = Field(min_length=1, max_length=200)
     phone: str = Field(default="", max_length=32)
     email: str | None = None
+    vk_username: str = Field(default="", max_length=128)
+    instagram_username: str = Field(default="", max_length=128)
+    facebook_username: str = Field(default="", max_length=128)
+    max_username: str = Field(default="", max_length=128)
     address: str = Field(default="", max_length=400)
     notes: str = Field(default="", max_length=2000)
     tags: list[str] = Field(default_factory=list)
@@ -70,6 +78,10 @@ class ClientUpdateRequest(_EmailMixin):
     full_name: str | None = Field(default=None, min_length=1, max_length=200)
     phone: str | None = Field(default=None, max_length=32)
     email: str | None = None
+    vk_username: str | None = Field(default=None, max_length=128)
+    instagram_username: str | None = Field(default=None, max_length=128)
+    facebook_username: str | None = Field(default=None, max_length=128)
+    max_username: str | None = Field(default=None, max_length=128)
     address: str | None = Field(default=None, max_length=400)
     status: str | None = Field(default=None, max_length=32)
     notes: str | None = Field(default=None, max_length=2000)
