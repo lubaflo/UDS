@@ -10,7 +10,7 @@ from app.api.v1 import router as v1_router
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
-from app.models import ReminderRule, Salon, SystemSettings, TrafficChannel
+from app.models import InventoryLocation, ReminderRule, Salon, SystemSettings, TrafficChannel
 
 app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION)
 
@@ -38,6 +38,9 @@ def _run_startup_schema_patches() -> None:
 
     _ensure_column_sqlite("feedback", "object_type", "object_type VARCHAR(24) NOT NULL DEFAULT 'service'")
     _ensure_column_sqlite("feedback", "object_id", "object_id INTEGER")
+
+    _ensure_column_sqlite("products", "item_type", "item_type VARCHAR(16) NOT NULL DEFAULT 'product'")
+    _ensure_column_sqlite("products", "track_inventory", "track_inventory BOOLEAN NOT NULL DEFAULT 1")
 
 
 app.add_middleware(
@@ -77,6 +80,20 @@ def startup() -> None:
         if not reminder_count:
             for offset in [60, 240, 1440, 10080]:
                 db.add(ReminderRule(salon_id=salon.id, offset_minutes=offset, channel="app", is_enabled=True))
+
+        location_count = db.execute(select(func.count()).where(InventoryLocation.salon_id == salon.id)).scalar_one()
+        if not location_count:
+            now = int(time.time())
+            db.add(
+                InventoryLocation(
+                    salon_id=salon.id,
+                    name="Основной склад",
+                    location_type="warehouse",
+                    is_active=True,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
 
         defaults = [
             ("Web", "web", ""),
