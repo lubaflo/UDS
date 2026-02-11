@@ -16,7 +16,7 @@ from app.models.communication import (
 from app.models.feedback import Feedback
 from app.models.message import Message
 from app.models.operation import Operation
-from app.models.product import Product, ProductImage
+from app.models.product import InventoryLocation, Product, ProductImage, StockBalance, StockMovement
 from app.models.salon import Salon
 from app.models.system_settings import SystemSettings
 from app.models.traffic_channel import TrafficChannel
@@ -39,6 +39,9 @@ __all__ = [
     "Operation",
     "Product",
     "ProductImage",
+    "InventoryLocation",
+    "StockBalance",
+    "StockMovement",
     "ReminderDispatch",
     "ReminderRule",
     "Salon",
