@@ -64,6 +64,7 @@
 - `GET /api/v1/admin/employees/export`, `GET /api/v1/admin/employees/export.csv` — выгрузка начислений с фильтрами по ФИО и периоду
 - `GET /api/v1/admin/analytics/customers` — вкладка "Клиенты" в статистике
 - `GET /api/v1/admin/analytics/operations` — вкладка "Операции" в статистике
+- `GET /api/v1/admin/analytics/finance` — блок финансовой отчётности (доходы/расходы, кэшфлоу по периодам)
 - `GET /api/v1/admin/analytics/ratings` — вкладка "Рейтинг" (по оплатам / рекомендациям)
 - `GET /api/v1/admin/analytics/levels` — вкладка "Клиенты по уровням"
 - `GET /api/v1/admin/analytics/page-go` — вкладка "Посещения UDS APP" (просмотры / посетители)
