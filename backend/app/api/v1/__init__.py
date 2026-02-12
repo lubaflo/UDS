@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.v1 import auth, feedback as app_feedback, health
+from app.api.v1 import appointments as app_appointments, auth, feedback as app_feedback, health
 from app.api.v1.admin import (
+    appointments,
     analytics,
     campaigns,
     communications,
@@ -27,7 +28,9 @@ router = APIRouter(prefix="/api/v1")
 router.include_router(auth.router)
 router.include_router(health.router)
 router.include_router(app_feedback.router)
+router.include_router(app_appointments.router)
 
+router.include_router(appointments.router)
 router.include_router(dashboard.router)
 router.include_router(employees.router)
 router.include_router(analytics.router)
