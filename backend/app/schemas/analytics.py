@@ -155,3 +155,42 @@ class MarketingAnalyticsResponse(BaseModel):
     automation: MarketingAutomationStats
     forecast: list[MarketingForecastPoint]
     insights: list[str]
+
+
+class ControlTowerBookingStats(BaseModel):
+    appointments_total: int
+    appointments_completed: int
+    appointments_cancelled: int
+    no_show_risk_percent: float
+    future_bookings_total: int
+    future_bookings_revenue_forecast_rub: int
+
+
+class ControlTowerInventoryStats(BaseModel):
+    sku_total: int
+    inventory_valuation_rub: int
+    low_stock_positions: int
+    out_of_stock_positions: int
+    top_stock_items: list[MetricCard]
+
+
+class ControlTowerSalesFunnelStage(BaseModel):
+    code: str
+    title: str
+    clients: int
+    conversion_percent: float
+
+
+class ControlTowerActionItem(BaseModel):
+    code: str
+    title: str
+    priority: str
+    description: str
+
+
+class ControlTowerAnalyticsResponse(BaseModel):
+    cards: list[MetricCard]
+    sales_funnel: list[ControlTowerSalesFunnelStage]
+    bookings: ControlTowerBookingStats
+    inventory: ControlTowerInventoryStats
+    action_plan: list[ControlTowerActionItem]
