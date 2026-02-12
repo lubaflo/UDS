@@ -64,3 +64,29 @@ class AnalyticsFilters(BaseModel):
 
 class RatingModeRequest(BaseModel):
     mode: str = Field(pattern="^(payments|recommendations)$")
+
+
+class PromotionForecastRequest(BaseModel):
+    period_days: int = Field(default=30, ge=1, le=365)
+    initial_clients: int = Field(default=100, ge=0, le=10_000_000)
+    avg_check_rub: float = Field(default=1500, ge=0)
+    conversion_rate_percent: float = Field(default=12, ge=0, le=100)
+    gross_margin_percent: float = Field(default=35, ge=0, le=100)
+
+
+class PromotionForecastGeneration(BaseModel):
+    generation: int
+    expected_new_clients: int
+    expected_reward_cost_rub: float
+
+
+class PromotionForecastResponse(BaseModel):
+    period_days: int
+    projected_clients_total: int
+    projected_revenue_rub: float
+    projected_gross_profit_rub: float
+    projected_reward_cost_rub: float
+    projected_net_effect_rub: float
+    break_even_new_clients: int
+    break_even_conversion_rate_percent: float
+    generations: list[PromotionForecastGeneration]

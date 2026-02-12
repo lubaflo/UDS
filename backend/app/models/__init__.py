@@ -17,6 +17,7 @@ from app.models.feedback import Feedback
 from app.models.message import Message
 from app.models.news import NewsEvent, NewsPost
 from app.models.operation import Operation
+from app.models.referral_program import ReferralProgramGenerationRule, ReferralProgramSetting
 from app.models.product import InventoryLocation, Product, ProductImage, StockBalance, StockMovement
 from app.models.salon import Salon
 from app.models.system_settings import SystemSettings
@@ -40,6 +41,8 @@ __all__ = [
     "NewsEvent",
     "NewsPost",
     "Operation",
+    "ReferralProgramGenerationRule",
+    "ReferralProgramSetting",
     "Product",
     "ProductImage",
     "InventoryLocation",

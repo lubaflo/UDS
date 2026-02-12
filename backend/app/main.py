@@ -10,7 +10,15 @@ from app.api.v1 import router as v1_router
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
-from app.models import InventoryLocation, ReminderRule, Salon, SystemSettings, TrafficChannel
+from app.models import (
+    InventoryLocation,
+    ReferralProgramGenerationRule,
+    ReferralProgramSetting,
+    ReminderRule,
+    Salon,
+    SystemSettings,
+    TrafficChannel,
+)
 
 app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION)
 
@@ -94,6 +102,31 @@ def startup() -> None:
                     updated_at=now,
                 )
             )
+
+
+        referral_settings = db.execute(
+            select(ReferralProgramSetting).where(ReferralProgramSetting.salon_id == salon.id)
+        ).scalar_one_or_none()
+        if referral_settings is None:
+            referral_settings = ReferralProgramSetting(
+                salon_id=salon.id,
+                is_active=False,
+                reward_unit="points",
+                max_generations=3,
+                base_reward_value=100,
+            )
+            db.add(referral_settings)
+            db.flush()
+            defaults = [10.0, 5.0, 3.0, 2.0, 1.0, 0.5]
+            for idx, percent in enumerate(defaults, start=1):
+                db.add(
+                    ReferralProgramGenerationRule(
+                        setting_id=referral_settings.id,
+                        generation=idx,
+                        reward_percent=percent,
+                        is_enabled=idx <= 3,
+                    )
+                )
 
         defaults = [
             ("Web", "web", ""),

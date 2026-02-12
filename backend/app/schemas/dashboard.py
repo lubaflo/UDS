@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class FinanceStats(BaseModel):
@@ -48,6 +48,7 @@ class DashboardPromoCard(BaseModel):
 class DashboardSectionLink(BaseModel):
     section: str
     route: str
+    children: list["DashboardSectionLink"] = Field(default_factory=list)
 
 
 class DashboardFullResponse(BaseModel):

@@ -7,7 +7,7 @@ from sqlalchemy import and_, case, func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_roles
-from app.models import AppPageEvent, Client, ClientAnalytics, Feedback, Operation
+from app.models import AppPageEvent, Client, ClientAnalytics, Feedback, Operation, ReferralProgramGenerationRule, ReferralProgramSetting
 from app.schemas.analytics import (
     AppVisitsAnalyticsResponse,
     CustomersAnalyticsResponse,
@@ -16,6 +16,9 @@ from app.schemas.analytics import (
     LevelsAnalyticsResponse,
     MetricCard,
     OperationsAnalyticsResponse,
+    PromotionForecastGeneration,
+    PromotionForecastRequest,
+    PromotionForecastResponse,
     RatingAnalyticsResponse,
     SeriesPoint,
 )
@@ -383,4 +386,81 @@ def page_go_analytics(
         timezone="GMT+03:00",
         info_text=info_text,
         series=[SeriesPoint(ts=k, value=v) for k, v in sorted(bucket.items())],
+    )
+
+
+@router.post("/promotion-forecast", response_model=PromotionForecastResponse)
+def promotion_forecast(
+    req: PromotionForecastRequest,
+    ctx=Depends(require_roles("owner", "admin")),
+    db: Session = Depends(get_db),
+) -> PromotionForecastResponse:
+    setting = db.execute(
+        select(ReferralProgramSetting).where(ReferralProgramSetting.salon_id == ctx.salon_id)
+    ).scalar_one_or_none()
+
+    generation_rows: list[ReferralProgramGenerationRule] = []
+    reward_unit = "points"
+    max_generations = 1
+    if setting is not None and setting.is_active:
+        generation_rows = db.execute(
+            select(ReferralProgramGenerationRule)
+            .where(ReferralProgramGenerationRule.setting_id == setting.id)
+            .order_by(ReferralProgramGenerationRule.generation.asc())
+        ).scalars().all()
+        reward_unit = setting.reward_unit
+        max_generations = setting.max_generations
+
+    generation_rows = [x for x in generation_rows if x.is_enabled and x.generation <= max_generations]
+
+    conversion = req.conversion_rate_percent / 100
+    margin = req.gross_margin_percent / 100
+
+    generations: list[PromotionForecastGeneration] = []
+    total_new_clients = 0
+    reward_cost = 0.0
+
+    current_base = req.initial_clients * conversion
+    base_reward = req.avg_check_rub if reward_unit == "money" else req.avg_check_rub * 0.3
+
+    for row in generation_rows:
+        expected_clients = int(round(current_base))
+        level_cost = expected_clients * base_reward * (row.reward_percent / 100)
+
+        total_new_clients += expected_clients
+        reward_cost += level_cost
+        generations.append(
+            PromotionForecastGeneration(
+                generation=row.generation,
+                expected_new_clients=expected_clients,
+                expected_reward_cost_rub=round(level_cost, 2),
+            )
+        )
+        current_base = expected_clients * conversion
+
+    projected_revenue = round(total_new_clients * req.avg_check_rub, 2)
+    projected_gross_profit = round(projected_revenue * margin, 2)
+    projected_net_effect = round(projected_gross_profit - reward_cost, 2)
+
+    per_client_profit = req.avg_check_rub * margin
+    per_client_reward = (reward_cost / total_new_clients) if total_new_clients else 0
+    per_client_net = per_client_profit - per_client_reward
+
+    if per_client_net <= 0:
+        break_even_new_clients = 0
+        break_even_conversion_rate = 0.0
+    else:
+        break_even_new_clients = int(round(reward_cost / per_client_profit)) if per_client_profit else 0
+        break_even_conversion_rate = round((break_even_new_clients / max(req.initial_clients, 1)) * 100, 2)
+
+    return PromotionForecastResponse(
+        period_days=req.period_days,
+        projected_clients_total=total_new_clients,
+        projected_revenue_rub=projected_revenue,
+        projected_gross_profit_rub=projected_gross_profit,
+        projected_reward_cost_rub=round(reward_cost, 2),
+        projected_net_effect_rub=projected_net_effect,
+        break_even_new_clients=break_even_new_clients,
+        break_even_conversion_rate_percent=break_even_conversion_rate,
+        generations=generations,
     )
