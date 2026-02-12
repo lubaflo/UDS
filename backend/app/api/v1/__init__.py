@@ -10,6 +10,7 @@ from app.api.v1.admin import (
     certificates,
     clients,
     dashboard,
+    employees,
     feedback,
     messages,
     news,
@@ -28,6 +29,7 @@ router.include_router(health.router)
 router.include_router(app_feedback.router)
 
 router.include_router(dashboard.router)
+router.include_router(employees.router)
 router.include_router(analytics.router)
 router.include_router(operations.router)
 router.include_router(clients.router)

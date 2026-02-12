@@ -55,6 +55,13 @@
 - `GET /api/v1/admin/referral-programs/client-info` — клиентское представление начислений по очередям рекомендаций
 - `GET/POST /api/v1/admin/traffic-channels` — источники трафика
 - `GET/PUT /api/v1/admin/system-settings` — системные настройки (экран "Системные настройки")
+- `GET/POST/PUT/DELETE /api/v1/admin/employees` — сотрудники: карточки, категории, архивация
+- `GET/POST/DELETE /api/v1/admin/employees/categories` — категории сотрудников
+- `GET/POST /api/v1/admin/employees/{employee_id}/timesheet` — табель (часы/сделка)
+- `GET/POST /api/v1/admin/employees/{employee_id}/schedule` — планирование рабочего времени
+- `POST /api/v1/admin/employees/payroll/run` — расчёт начислений по системе оплаты (повременная/сдельная)
+- `GET /api/v1/admin/employees/{employee_id}/history` — история изменений по сотруднику
+- `GET /api/v1/admin/employees/export`, `GET /api/v1/admin/employees/export.csv` — выгрузка начислений с фильтрами по ФИО и периоду
 - `GET /api/v1/admin/analytics/customers` — вкладка "Клиенты" в статистике
 - `GET /api/v1/admin/analytics/operations` — вкладка "Операции" в статистике
 - `GET /api/v1/admin/analytics/ratings` — вкладка "Рейтинг" (по оплатам / рекомендациям)
