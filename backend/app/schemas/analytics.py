@@ -90,3 +90,54 @@ class PromotionForecastResponse(BaseModel):
     break_even_new_clients: int
     break_even_conversion_rate_percent: float
     generations: list[PromotionForecastGeneration]
+
+
+class MarketingFunnelStage(BaseModel):
+    code: str
+    title: str
+    clients: int
+    conversion_percent: float
+
+
+class MarketingChannelStats(BaseModel):
+    channel_id: int | None
+    channel_name: str
+    clients_total: int
+    buyers_total: int
+    purchases_total: int
+    revenue_rub: int
+    conversion_to_purchase_percent: float
+
+
+class MarketingSegment(BaseModel):
+    segment: str
+    clients_total: int
+    buyers_total: int
+    conversion_percent: float
+
+
+class MarketingAutomationStats(BaseModel):
+    campaigns_total: int
+    sent_total: int
+    opened_total: int
+    clicked_total: int
+    converted_total: int
+    open_rate_percent: float
+    click_rate_percent: float
+    conversion_rate_percent: float
+
+
+class MarketingForecastPoint(BaseModel):
+    ts: int
+    new_clients_actual: int
+    new_clients_forecast: int
+
+
+class MarketingAnalyticsResponse(BaseModel):
+    cards: list[MetricCard]
+    channels: list[MarketingChannelStats]
+    funnel: list[MarketingFunnelStage]
+    segments: list[MarketingSegment]
+    automation: MarketingAutomationStats
+    forecast: list[MarketingForecastPoint]
+    insights: list[str]

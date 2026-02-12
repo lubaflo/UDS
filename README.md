@@ -67,6 +67,7 @@
 - `GET /api/v1/admin/analytics/ratings` — вкладка "Рейтинг" (по оплатам / рекомендациям)
 - `GET /api/v1/admin/analytics/levels` — вкладка "Клиенты по уровням"
 - `GET /api/v1/admin/analytics/page-go` — вкладка "Посещения UDS APP" (просмотры / посетители)
+- `GET /api/v1/admin/analytics/marketing` — маркетинговая аналитика: каналы, воронка, сегменты, CRM-маркетинг, прогноз
 - `POST /api/v1/admin/analytics/promotion-forecast` — прогноз притока клиентов и расчет безубыточности акций
 
 ## Локальный запуск (PyCharm / terminal)
