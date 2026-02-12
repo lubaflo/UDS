@@ -23,6 +23,8 @@ from app.schemas.analytics import (
     AppVisitsAnalyticsResponse,
     CustomersAnalyticsResponse,
     DistributionItem,
+    FinanceAnalyticsResponse,
+    FinanceCategoryBreakdownItem,
     LevelsAnalyticsItem,
     LevelsAnalyticsResponse,
     MarketingAnalyticsResponse,
@@ -284,6 +286,97 @@ def operations_analytics(
     return OperationsAnalyticsResponse(
         cards=cards,
         operations_series=[SeriesPoint(ts=k, value=v) for k, v in sorted(daily_counts.items())],
+    )
+
+
+@router.get("/finance", response_model=FinanceAnalyticsResponse)
+def finance_analytics(
+    date_from: int | None = Query(default=None),
+    date_to: int | None = Query(default=None),
+    detailing: str = Query(default="day", pattern="^(day|week|month)$"),
+    ctx=Depends(require_roles("owner", "admin")),
+    db: Session = Depends(get_db),
+) -> FinanceAnalyticsResponse:
+    start_ts, end_ts = _range_bounds(date_from, date_to)
+    rows = db.execute(
+        select(Operation).where(
+            and_(
+                Operation.salon_id == ctx.salon_id,
+                Operation.created_at >= start_ts,
+                Operation.created_at <= end_ts,
+            )
+        )
+    ).scalars().all()
+
+    incomes = [row for row in rows if row.op_type in {"purchase", "order"}]
+    refunds = [row for row in rows if row.op_type == "refund"]
+
+    purchase_income = sum(row.amount_rub for row in incomes if row.op_type == "purchase")
+    order_income = sum(row.amount_rub for row in incomes if row.op_type == "order")
+    income_total = purchase_income + order_income
+    discount_total = sum(row.discount_rub + row.referral_discount_rub for row in rows)
+    refund_total = sum(row.amount_rub for row in refunds)
+    net_income = income_total - discount_total - refund_total
+
+    bucket_seconds = {"day": 86400, "week": 7 * 86400, "month": 30 * 86400}[detailing]
+    bucket_map: dict[int, int] = {}
+    for row in rows:
+        ts = row.created_at - (row.created_at % bucket_seconds)
+        signed_amount = row.amount_rub if row.op_type in {"purchase", "order"} else -row.amount_rub
+        bucket_map[ts] = bucket_map.get(ts, 0) + signed_amount
+
+    total_income_for_share = income_total or 1
+    total_expenses = discount_total + refund_total
+    total_expenses_for_share = total_expenses or 1
+
+    income_by_source = [
+        FinanceCategoryBreakdownItem(
+            code="purchases",
+            title="Покупки",
+            amount_rub=purchase_income,
+            share_percent=round((purchase_income / total_income_for_share) * 100, 2),
+        ),
+        FinanceCategoryBreakdownItem(
+            code="orders",
+            title="Заказы",
+            amount_rub=order_income,
+            share_percent=round((order_income / total_income_for_share) * 100, 2),
+        ),
+    ]
+
+    expenses_by_source = [
+        FinanceCategoryBreakdownItem(
+            code="discounts",
+            title="Скидки",
+            amount_rub=discount_total,
+            share_percent=round((discount_total / total_expenses_for_share) * 100, 2),
+        ),
+        FinanceCategoryBreakdownItem(
+            code="refunds",
+            title="Возвраты",
+            amount_rub=refund_total,
+            share_percent=round((refund_total / total_expenses_for_share) * 100, 2),
+        ),
+    ]
+
+    cards = [
+        MetricCard(code="income_total", title="Доходы", value=income_total),
+        MetricCard(code="discount_total", title="Скидки", value=discount_total),
+        MetricCard(code="refund_total", title="Возвраты", value=refund_total),
+        MetricCard(code="net_income", title="Чистый доход", value=net_income),
+        MetricCard(code="operations_count", title="Операций", value=len(rows)),
+        MetricCard(
+            code="avg_income_per_operation",
+            title="Средний доход на операцию",
+            value=round(net_income / len(rows), 2) if rows else 0,
+        ),
+    ]
+
+    return FinanceAnalyticsResponse(
+        cards=cards,
+        cashflow_series=[SeriesPoint(ts=k, value=v) for k, v in sorted(bucket_map.items())],
+        income_by_source=income_by_source,
+        expenses_by_source=expenses_by_source,
     )
 
 

@@ -31,6 +31,20 @@ class OperationsAnalyticsResponse(BaseModel):
     operations_series: list[SeriesPoint]
 
 
+class FinanceCategoryBreakdownItem(BaseModel):
+    code: str
+    title: str
+    amount_rub: int
+    share_percent: float
+
+
+class FinanceAnalyticsResponse(BaseModel):
+    cards: list[MetricCard]
+    cashflow_series: list[SeriesPoint]
+    income_by_source: list[FinanceCategoryBreakdownItem]
+    expenses_by_source: list[FinanceCategoryBreakdownItem]
+
+
 class RatingAnalyticsResponse(BaseModel):
     mode: str
     average_rating: float
