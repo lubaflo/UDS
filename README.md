@@ -37,6 +37,9 @@
 - `POST /api/v1/admin/communications/track` — трекинг событий (open/click/conversion)
 - `GET/PUT /api/v1/admin/communications/reminders/rules` — автонапоминания о записи (1ч/4ч/1д/1нед)
 - `POST /api/v1/admin/communications/appointments` — создание записи клиента
+- `GET/POST /api/v1/admin/appointments` — раздел записи для администратора (список с фильтрами и ручное создание)
+- `PATCH /api/v1/admin/appointments/{appointment_id}/status` — смена статуса записи (scheduled/cancelled/completed)
+- `POST /api/v1/app/appointments/book` — онлайн-запись клиента из приложения (Telegram WebApp initData)
 - `POST /api/v1/admin/communications/reminders/run` — обработчик автоматических напоминаний
 - `POST /api/v1/feedback/app/rating` — клиент из Telegram Mini App ставит оценку товару/услуге
 - `POST /api/v1/feedback/app/message` — клиент пишет администратору, диалог сохраняется по клиенту
