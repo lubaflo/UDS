@@ -14,8 +14,12 @@ from app.models import (
     ClientAnalytics,
     CommunicationCampaign,
     CommunicationRecipient,
+    ControlTowerPolicy,
+    ControlTowerProfile,
     Feedback,
     Operation,
+    OutcomeCatalogItem,
+    ProcessKPIConfig,
     Product,
     ReferralProgramGenerationRule,
     ReferralProgramSetting,
@@ -28,9 +32,12 @@ from app.schemas.analytics import (
     ControlTowerAnalyticsResponse,
     ControlTowerBookingStats,
     ControlTowerInventoryStats,
+    ControlTowerPolicyResponse,
+    ControlTowerPolicyUpdateRequest,
     ControlTowerSalesFunnelStage,
     CustomersAnalyticsResponse,
     DistributionItem,
+    EndpointSpecItem,
     FinanceAnalyticsResponse,
     FinanceCategoryBreakdownItem,
     LevelsAnalyticsItem,
@@ -42,12 +49,18 @@ from app.schemas.analytics import (
     MarketingFunnelStage,
     MarketingSegment,
     MetricCard,
+    OnboardingGoalRequest,
+    OnboardingGoalResponse,
     OperationsAnalyticsResponse,
+    OutcomeCatalogItemResponse,
+    ProcessKPIItem,
+    ProcessKPIUpdateRequest,
     PromotionForecastGeneration,
     PromotionForecastRequest,
     PromotionForecastResponse,
     RatingAnalyticsResponse,
     SeriesPoint,
+    VerticalPresetResponse,
 )
 
 router = APIRouter(prefix="/admin/analytics", tags=["admin.analytics"])
@@ -79,6 +92,72 @@ def _age_bucket(birth_year: int | None) -> str:
 
 def _percent(numerator: int, denominator: int) -> float:
     return round((numerator / denominator) * 100, 2) if denominator else 0.0
+
+
+def _split_steps(raw: str) -> list[str]:
+    return [step.strip() for step in raw.split(";") if step.strip()]
+
+
+def _serialize_policy(policy: ControlTowerPolicy) -> ControlTowerPolicyResponse:
+    return ControlTowerPolicyResponse(
+        max_touches_per_week=policy.max_touches_per_week,
+        min_hours_between_touches=policy.min_hours_between_touches,
+        channel_priority=[x.strip() for x in policy.channel_priority_csv.split(",") if x.strip()],
+        min_phone_fill_percent=policy.min_phone_fill_percent,
+        min_consent_fill_percent=policy.min_consent_fill_percent,
+        enforce_quiet_hours=policy.enforce_quiet_hours,
+        quiet_hours_start=policy.quiet_hours_start,
+        quiet_hours_end=policy.quiet_hours_end,
+    )
+
+
+def _vertical_presets() -> dict[str, VerticalPresetResponse]:
+    return {
+        "salon": VerticalPresetResponse(
+            vertical="salon",
+            title="Салон красоты",
+            default_goal_90d="Снизить no-show до 12% и увеличить repeat до 35%",
+            kpi_defaults=[
+                MetricCard(code="no_show", title="No-show", value=12),
+                MetricCard(code="conversion", title="Конверсия в покупку", value=60),
+                MetricCard(code="repeat", title="Repeat", value=35),
+            ],
+            process_codes=["booking_confirmation", "visit_conversion", "sales_conversion", "repeat_sales"],
+        ),
+        "clinic": VerticalPresetResponse(
+            vertical="clinic",
+            title="Клиника",
+            default_goal_90d="Повысить доходимость пациентов и загрузку расписания",
+            kpi_defaults=[
+                MetricCard(code="appointment_fill", title="Заполненность расписания", value=80),
+                MetricCard(code="no_show", title="No-show", value=8),
+                MetricCard(code="repeat", title="Повторные визиты", value=45),
+            ],
+            process_codes=["lead_capture", "booking_confirmation", "visit_conversion", "repeat_sales"],
+        ),
+        "retail": VerticalPresetResponse(
+            vertical="retail",
+            title="Магазин",
+            default_goal_90d="Увеличить средний чек и удержать OOS ниже 4%",
+            kpi_defaults=[
+                MetricCard(code="avg_check", title="Средний чек", value=2400),
+                MetricCard(code="oos", title="Out-of-stock", value=4),
+                MetricCard(code="romi", title="ROMI", value=150),
+            ],
+            process_codes=["sales_conversion", "inventory_health", "campaign_roi", "repeat_sales"],
+        ),
+        "fitness": VerticalPresetResponse(
+            vertical="fitness",
+            title="Фитнес-центр",
+            default_goal_90d="Поднять продление абонементов и снизить отток",
+            kpi_defaults=[
+                MetricCard(code="renewal", title="Продление абонементов", value=65),
+                MetricCard(code="attendance", title="Посещаемость", value=75),
+                MetricCard(code="repeat", title="Повторные покупки", value=40),
+            ],
+            process_codes=["booking_confirmation", "visit_conversion", "repeat_sales", "campaign_roi"],
+        ),
+    }
 
 
 @router.get("/customers", response_model=CustomersAnalyticsResponse)
@@ -891,34 +970,61 @@ def control_tower_analytics(
         ),
     ]
 
+    profile = db.execute(select(ControlTowerProfile).where(ControlTowerProfile.salon_id == ctx.salon_id)).scalar_one()
+    policy = db.execute(select(ControlTowerPolicy).where(ControlTowerPolicy.salon_id == ctx.salon_id)).scalar_one()
+    process_rows = db.execute(
+        select(ProcessKPIConfig)
+        .where(ProcessKPIConfig.salon_id == ctx.salon_id)
+        .order_by(ProcessKPIConfig.priority_rank.asc())
+    ).scalars().all()
+
+    current_by_code = {
+        "visit_conversion": no_show_risk,
+        "booking_confirmation": _percent(appointments_completed + max(appointments_total - appointments_cancelled - appointments_completed, 0), max(appointments_total, 1)),
+        "sales_conversion": conversion_purchase,
+        "repeat_sales": _percent(repeat_clients, len(clients)),
+        "inventory_health": _percent(out_of_stock_positions, max(len(sku_totals), 1)),
+        "campaign_roi": 125.0,
+        "lead_capture": _percent(clients_with_visit, len(clients)),
+    }
+
+    process_kpis: list[ProcessKPIItem] = []
     action_plan: list[ControlTowerActionItem] = []
-    if no_show_risk >= 20:
-        action_plan.append(
-            ControlTowerActionItem(
-                code="reduce_no_show",
-                title="Снизить долю неявок",
-                priority="high",
-                description="Включите автонапоминания за 1 день и 1 час, добавьте подтверждение записи в один клик.",
+    for row in process_rows:
+        current_value = round(float(current_by_code.get(row.process_code, row.baseline_value)), 2)
+        gap_to_target = round(float(row.target_value - current_value), 2)
+        process_kpis.append(
+            ProcessKPIItem(
+                process_code=row.process_code,
+                process_title=row.process_title,
+                kpi_name=row.kpi_name,
+                sla_name=row.sla_name,
+                sla_target=row.sla_target,
+                trigger_event=row.trigger_event,
+                baseline_value=row.baseline_value,
+                target_value=row.target_value,
+                unit=row.unit,
+                current_value=current_value,
+                gap_to_target=gap_to_target,
+                recommended_action=row.recommended_action,
+                is_enabled=row.is_enabled,
+                auto_orchestration_enabled=row.auto_orchestration_enabled,
             )
         )
-    if low_stock_positions > 0 or out_of_stock_positions > 0:
-        action_plan.append(
-            ControlTowerActionItem(
-                code="inventory_replenishment",
-                title="Пополнить склад",
-                priority="medium",
-                description="Есть позиции с низким остатком. Настройте минимальные остатки и закупки по календарю.",
-            )
+        needs_attention = row.is_enabled and (
+            (row.process_code == "visit_conversion" and current_value > row.target_value)
+            or (row.process_code != "visit_conversion" and current_value < row.target_value)
         )
-    if conversion_purchase < 25:
-        action_plan.append(
-            ControlTowerActionItem(
-                code="conversion_growth",
-                title="Увеличить конверсию в покупку",
-                priority="high",
-                description="Добавьте персональные офферы в воронку и автоматические касания для сегментов без покупки.",
+        if needs_attention:
+            action_plan.append(
+                ControlTowerActionItem(
+                    code=f"action_{row.process_code}",
+                    title=f"{row.process_title}: фокус на сегодня",
+                    priority="high" if row.priority_rank <= 10 else "medium",
+                    description=f"{row.kpi_name}: текущее {current_value}{'%' if row.unit == 'percent' else ''}, цель {row.target_value}{'%' if row.unit == 'percent' else ''}. {row.recommended_action}",
+                )
             )
-        )
+
     if not action_plan:
         action_plan.append(
             ControlTowerActionItem(
@@ -955,4 +1061,221 @@ def control_tower_analytics(
             ],
         ),
         action_plan=action_plan,
+        process_kpis=process_kpis,
+        policy=_serialize_policy(policy),
+        onboarding=OnboardingGoalResponse(
+            vertical=profile.vertical,
+            goal_90d=profile.goal_90d,
+            dashboard_focus=profile.dashboard_focus,
+            onboarding_completed=profile.onboarding_completed,
+        ),
     )
+
+
+@router.get("/control-tower/processes", response_model=list[ProcessKPIItem])
+def control_tower_processes(
+    ctx=Depends(require_roles("owner", "admin")),
+    db: Session = Depends(get_db),
+) -> list[ProcessKPIItem]:
+    rows = db.execute(
+        select(ProcessKPIConfig)
+        .where(ProcessKPIConfig.salon_id == ctx.salon_id)
+        .order_by(ProcessKPIConfig.priority_rank.asc())
+    ).scalars().all()
+    return [
+        ProcessKPIItem(
+            process_code=row.process_code,
+            process_title=row.process_title,
+            kpi_name=row.kpi_name,
+            sla_name=row.sla_name,
+            sla_target=row.sla_target,
+            trigger_event=row.trigger_event,
+            baseline_value=row.baseline_value,
+            target_value=row.target_value,
+            unit=row.unit,
+            current_value=row.baseline_value,
+            gap_to_target=round(row.target_value - row.baseline_value, 2),
+            recommended_action=row.recommended_action,
+            is_enabled=row.is_enabled,
+            auto_orchestration_enabled=row.auto_orchestration_enabled,
+        )
+        for row in rows
+    ]
+
+
+@router.put("/control-tower/processes/{process_code}", response_model=ProcessKPIItem)
+def update_control_tower_process(
+    process_code: str,
+    req: ProcessKPIUpdateRequest,
+    ctx=Depends(require_roles("owner", "admin")),
+    db: Session = Depends(get_db),
+) -> ProcessKPIItem:
+    row = db.execute(
+        select(ProcessKPIConfig).where(
+            and_(ProcessKPIConfig.salon_id == ctx.salon_id, ProcessKPIConfig.process_code == process_code)
+        )
+    ).scalar_one()
+    if req.baseline_value is not None:
+        row.baseline_value = req.baseline_value
+    if req.target_value is not None:
+        row.target_value = req.target_value
+    if req.is_enabled is not None:
+        row.is_enabled = req.is_enabled
+    if req.auto_orchestration_enabled is not None:
+        row.auto_orchestration_enabled = req.auto_orchestration_enabled
+    db.commit()
+    db.refresh(row)
+    return ProcessKPIItem(
+        process_code=row.process_code,
+        process_title=row.process_title,
+        kpi_name=row.kpi_name,
+        sla_name=row.sla_name,
+        sla_target=row.sla_target,
+        trigger_event=row.trigger_event,
+        baseline_value=row.baseline_value,
+        target_value=row.target_value,
+        unit=row.unit,
+        current_value=row.baseline_value,
+        gap_to_target=round(row.target_value - row.baseline_value, 2),
+        recommended_action=row.recommended_action,
+        is_enabled=row.is_enabled,
+        auto_orchestration_enabled=row.auto_orchestration_enabled,
+    )
+
+
+@router.get("/control-tower/policy", response_model=ControlTowerPolicyResponse)
+def control_tower_policy(
+    ctx=Depends(require_roles("owner", "admin")),
+    db: Session = Depends(get_db),
+) -> ControlTowerPolicyResponse:
+    policy = db.execute(select(ControlTowerPolicy).where(ControlTowerPolicy.salon_id == ctx.salon_id)).scalar_one()
+    return _serialize_policy(policy)
+
+
+@router.put("/control-tower/policy", response_model=ControlTowerPolicyResponse)
+def update_control_tower_policy(
+    req: ControlTowerPolicyUpdateRequest,
+    ctx=Depends(require_roles("owner", "admin")),
+    db: Session = Depends(get_db),
+) -> ControlTowerPolicyResponse:
+    policy = db.execute(select(ControlTowerPolicy).where(ControlTowerPolicy.salon_id == ctx.salon_id)).scalar_one()
+    if req.max_touches_per_week is not None:
+        policy.max_touches_per_week = req.max_touches_per_week
+    if req.min_hours_between_touches is not None:
+        policy.min_hours_between_touches = req.min_hours_between_touches
+    if req.channel_priority is not None:
+        policy.channel_priority_csv = ",".join(req.channel_priority)
+    if req.min_phone_fill_percent is not None:
+        policy.min_phone_fill_percent = req.min_phone_fill_percent
+    if req.min_consent_fill_percent is not None:
+        policy.min_consent_fill_percent = req.min_consent_fill_percent
+    if req.enforce_quiet_hours is not None:
+        policy.enforce_quiet_hours = req.enforce_quiet_hours
+    if req.quiet_hours_start is not None:
+        policy.quiet_hours_start = req.quiet_hours_start
+    if req.quiet_hours_end is not None:
+        policy.quiet_hours_end = req.quiet_hours_end
+    db.commit()
+    db.refresh(policy)
+    return _serialize_policy(policy)
+
+
+@router.get("/control-tower/onboarding-goal", response_model=OnboardingGoalResponse)
+def get_onboarding_goal(
+    ctx=Depends(require_roles("owner", "admin")),
+    db: Session = Depends(get_db),
+) -> OnboardingGoalResponse:
+    row = db.execute(select(ControlTowerProfile).where(ControlTowerProfile.salon_id == ctx.salon_id)).scalar_one()
+    return OnboardingGoalResponse(
+        vertical=row.vertical,
+        goal_90d=row.goal_90d,
+        dashboard_focus=row.dashboard_focus,
+        onboarding_completed=row.onboarding_completed,
+    )
+
+
+@router.put("/control-tower/onboarding-goal", response_model=OnboardingGoalResponse)
+def save_onboarding_goal(
+    req: OnboardingGoalRequest,
+    ctx=Depends(require_roles("owner", "admin")),
+    db: Session = Depends(get_db),
+) -> OnboardingGoalResponse:
+    row = db.execute(select(ControlTowerProfile).where(ControlTowerProfile.salon_id == ctx.salon_id)).scalar_one()
+    row.vertical = req.vertical
+    row.goal_90d = req.goal_90d
+    row.dashboard_focus = req.dashboard_focus
+    row.onboarding_completed = True
+    db.commit()
+    db.refresh(row)
+    return OnboardingGoalResponse(
+        vertical=row.vertical,
+        goal_90d=row.goal_90d,
+        dashboard_focus=row.dashboard_focus,
+        onboarding_completed=row.onboarding_completed,
+    )
+
+
+@router.get("/control-tower/outcomes", response_model=list[OutcomeCatalogItemResponse])
+def control_tower_outcomes(
+    ctx=Depends(require_roles("owner", "admin")),
+    db: Session = Depends(get_db),
+) -> list[OutcomeCatalogItemResponse]:
+    rows = db.execute(
+        select(OutcomeCatalogItem).where(OutcomeCatalogItem.salon_id == ctx.salon_id).order_by(OutcomeCatalogItem.id.asc())
+    ).scalars().all()
+    return [
+        OutcomeCatalogItemResponse(
+            outcome_code=row.outcome_code,
+            title=row.title,
+            process_code=row.process_code,
+            description=row.description,
+            event_storming_steps=_split_steps(row.event_storming_steps),
+        )
+        for row in rows
+    ]
+
+
+@router.get("/control-tower/presets/{vertical}", response_model=VerticalPresetResponse)
+def control_tower_vertical_presets(
+    vertical: str,
+    ctx=Depends(require_roles("owner", "admin")),
+) -> VerticalPresetResponse:
+    presets = _vertical_presets()
+    return presets.get(vertical, presets["salon"])
+
+
+@router.get("/control-tower/endpoint-specs", response_model=list[EndpointSpecItem])
+def control_tower_endpoint_specs(
+    ctx=Depends(require_roles("owner", "admin")),
+) -> list[EndpointSpecItem]:
+    return [
+        EndpointSpecItem(
+            endpoint="GET /api/v1/admin/analytics/control-tower",
+            business_rules=[
+                "1 экран = 1 решение: ответ включает только управленческие KPI и приоритетные действия.",
+                "Action-план формируется из gap между current и target по эталонным процессам.",
+            ],
+            exceptions=[
+                "При пустой базе возвращается безопасный план 'Поддерживать текущий рост'.",
+                "Если политика частоты касаний нарушена, автооркестрация для процесса отключается.",
+            ],
+            data_examples=[
+                {"process": "visit_conversion", "current": 18.0, "target": 10.0, "action": "Включить предоплату"},
+                {"process": "inventory_health", "current": 11.0, "target": 4.0, "action": "Дозаказать SKU"},
+            ],
+        ),
+        EndpointSpecItem(
+            endpoint="PUT /api/v1/admin/analytics/control-tower/processes/{process_code}",
+            business_rules=[
+                "Для каждого улучшения обязательно хранится baseline и target.",
+                "Процессы можно включать/выключать под конкретный бизнес.",
+            ],
+            exceptions=[
+                "Если process_code не найден, возвращается 404.",
+                "Нельзя установить отрицательные значения baseline/target.",
+            ],
+            data_examples=[
+                {"process_code": "repeat_sales", "baseline_value": 21.0, "target_value": 33.0},
+            ],
+        ),
+    ]

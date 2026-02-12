@@ -11,7 +11,11 @@ from app.core.config import settings
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
 from app.models import (
+    ControlTowerPolicy,
+    ControlTowerProfile,
     InventoryLocation,
+    OutcomeCatalogItem,
+    ProcessKPIConfig,
     ReferralProgramGenerationRule,
     ReferralProgramSetting,
     ReminderRule,
@@ -146,6 +150,73 @@ def startup() -> None:
                         channel_type=channel_type,
                         promo_code=promo_code,
                         created_at=now,
+                    )
+                )
+
+        profile = db.execute(select(ControlTowerProfile).where(ControlTowerProfile.salon_id == salon.id)).scalar_one_or_none()
+        if profile is None:
+            db.add(
+                ControlTowerProfile(
+                    salon_id=salon.id,
+                    vertical="salon",
+                    goal_90d="Снизить no-show до 12% и увеличить выручку на 15%",
+                    dashboard_focus="Выручка, запись и повторные продажи",
+                    onboarding_completed=False,
+                )
+            )
+
+        policy = db.execute(select(ControlTowerPolicy).where(ControlTowerPolicy.salon_id == salon.id)).scalar_one_or_none()
+        if policy is None:
+            db.add(ControlTowerPolicy(salon_id=salon.id))
+
+        process_count = db.execute(select(func.count()).where(ProcessKPIConfig.salon_id == salon.id)).scalar_one()
+        if not process_count:
+            defaults = [
+                ("lead_capture", "Привлечение лида", "Конверсия лида в запись", "SLA ответа на лид", 15, "new_client", 24, 35, "percent", "Подключить автоответ и оффер на первый визит.", 10),
+                ("booking_confirmation", "Подтверждение записи", "Подтвержденные записи", "SLA подтверждения", 90, "appointment_created", 72, 92, "percent", "Автонапоминание за 24ч и 1ч + кнопка подтверждения.", 20),
+                ("visit_conversion", "Запись в визит", "No-show", "SLA no-show", 12, "appointment_no_show", 18, 10, "percent", "Включить предоплату и сценарий дожима после пропуска.", 5),
+                ("sales_conversion", "Визит в покупку", "Конверсия визит→покупка", "SLA конверсии", 55, "visit_completed", 42, 60, "percent", "Добавить персональные рекомендации и кросс-селл.", 15),
+                ("repeat_sales", "Повторные продажи", "Repeat rate", "SLA повтора за 30 дней", 35, "purchase_completed", 21, 33, "percent", "Автоцепочка повторной покупки на 7/21 день.", 25),
+                ("inventory_health", "Здоровье склада", "OOS доля", "SLA out-of-stock", 5, "stock_low", 11, 4, "percent", "Настроить минимальные остатки и триггер закупки.", 8),
+                ("campaign_roi", "Эффективность кампаний", "ROMI", "SLA ROMI", 130, "campaign_sent", 105, 150, "percent", "Отключить нерентабельные каналы и усилить топ-2 сегмента.", 30),
+            ]
+            for code, title, kpi, sla, sla_target, trigger, baseline, target, unit, rec, prio in defaults:
+                db.add(
+                    ProcessKPIConfig(
+                        salon_id=salon.id,
+                        process_code=code,
+                        process_title=title,
+                        kpi_name=kpi,
+                        sla_name=sla,
+                        sla_target=float(sla_target),
+                        trigger_event=trigger,
+                        baseline_value=float(baseline),
+                        target_value=float(target),
+                        unit=unit,
+                        recommended_action=rec,
+                        is_enabled=True,
+                        auto_orchestration_enabled=True,
+                        priority_rank=prio,
+                    )
+                )
+
+        outcomes_count = db.execute(select(func.count()).where(OutcomeCatalogItem.salon_id == salon.id)).scalar_one()
+        if not outcomes_count:
+            outcomes = [
+                ("stable_schedule", "Стабильная запись", "booking_confirmation", "Стабилизировать загрузку расписания на 90 дней", "Лид→контакт; Контакт→запись; Запись→подтверждение; Подтверждение→визит"),
+                ("higher_conversion", "Рост конверсии в покупку", "sales_conversion", "Увеличить долю визитов, завершившихся продажей", "Визит; Выявление потребности; Оффер; Оплата"),
+                ("repeat_growth", "Рост повторных покупок", "repeat_sales", "Повысить retention и LTV", "Покупка; Follow-up; Повторный оффер; Повторная покупка"),
+                ("low_no_show", "Снижение неявок", "visit_conversion", "Снизить no-show за счёт напоминаний и подтверждений", "Создание записи; Напоминание; Подтверждение; Визит"),
+            ]
+            for code, title, process_code, description, steps in outcomes:
+                db.add(
+                    OutcomeCatalogItem(
+                        salon_id=salon.id,
+                        outcome_code=code,
+                        title=title,
+                        process_code=process_code,
+                        description=description,
+                        event_storming_steps=steps,
                     )
                 )
         db.commit()
