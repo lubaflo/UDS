@@ -7,13 +7,30 @@ from sqlalchemy import and_, case, func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_roles
-from app.models import AppPageEvent, Client, ClientAnalytics, Feedback, Operation, ReferralProgramGenerationRule, ReferralProgramSetting
+from app.models import (
+    AppPageEvent,
+    Client,
+    ClientAnalytics,
+    CommunicationCampaign,
+    CommunicationRecipient,
+    Feedback,
+    Operation,
+    ReferralProgramGenerationRule,
+    ReferralProgramSetting,
+    TrafficChannel,
+)
 from app.schemas.analytics import (
     AppVisitsAnalyticsResponse,
     CustomersAnalyticsResponse,
     DistributionItem,
     LevelsAnalyticsItem,
     LevelsAnalyticsResponse,
+    MarketingAnalyticsResponse,
+    MarketingAutomationStats,
+    MarketingChannelStats,
+    MarketingForecastPoint,
+    MarketingFunnelStage,
+    MarketingSegment,
     MetricCard,
     OperationsAnalyticsResponse,
     PromotionForecastGeneration,
@@ -48,6 +65,10 @@ def _age_bucket(birth_year: int | None) -> str:
     if age >= 55:
         return "55+"
     return "Не указан"
+
+
+def _percent(numerator: int, denominator: int) -> float:
+    return round((numerator / denominator) * 100, 2) if denominator else 0.0
 
 
 @router.get("/customers", response_model=CustomersAnalyticsResponse)
@@ -386,6 +407,199 @@ def page_go_analytics(
         timezone="GMT+03:00",
         info_text=info_text,
         series=[SeriesPoint(ts=k, value=v) for k, v in sorted(bucket.items())],
+    )
+
+
+@router.get("/marketing", response_model=MarketingAnalyticsResponse)
+def marketing_analytics(
+    date_from: int | None = Query(default=None),
+    date_to: int | None = Query(default=None),
+    ctx=Depends(require_roles("owner", "admin")),
+    db: Session = Depends(get_db),
+) -> MarketingAnalyticsResponse:
+    start_ts, end_ts = _range_bounds(date_from, date_to)
+
+    clients = db.execute(
+        select(Client).where(Client.salon_id == ctx.salon_id)
+    ).scalars().all()
+    operations = db.execute(
+        select(Operation).where(
+            and_(
+                Operation.salon_id == ctx.salon_id,
+                Operation.created_at >= start_ts,
+                Operation.created_at <= end_ts,
+            )
+        )
+    ).scalars().all()
+    channels = db.execute(
+        select(TrafficChannel).where(TrafficChannel.salon_id == ctx.salon_id)
+    ).scalars().all()
+
+    clients_by_id = {row.id: row for row in clients}
+    channels_by_id = {row.id: row for row in channels}
+
+    purchases = [row for row in operations if row.op_type == "purchase"]
+    buyers_ids = {row.client_id for row in purchases}
+    new_clients = [row for row in clients if start_ts <= (row.last_visit_at or 0) <= end_ts]
+    retained_clients = [row for row in clients if row.visits_count >= 2]
+
+    card_total_clients = len(clients)
+    card_buyers = len(buyers_ids)
+    card_conversion = _percent(card_buyers, card_total_clients)
+    card_revenue = int(sum(row.amount_rub for row in purchases))
+    card_avg_check = round(card_revenue / len(purchases), 2) if purchases else 0.0
+
+    channel_stats: list[MarketingChannelStats] = []
+    channel_client_map: dict[int | None, list[Client]] = {None: []}
+    for row in channels:
+        channel_client_map[row.id] = []
+
+    for client in clients:
+        channel_client_map.setdefault(client.acquisition_channel_id, []).append(client)
+
+    purchases_by_channel: dict[int | None, list[Operation]] = {key: [] for key in channel_client_map.keys()}
+    for row in purchases:
+        client = clients_by_id.get(row.client_id)
+        channel_id = client.acquisition_channel_id if client is not None else None
+        purchases_by_channel.setdefault(channel_id, []).append(row)
+
+    for channel_id, channel_clients in channel_client_map.items():
+        channel_purchases = purchases_by_channel.get(channel_id, [])
+        channel_buyers = {row.client_id for row in channel_purchases}
+        channel_name = channels_by_id[channel_id].name if channel_id in channels_by_id else "Без источника"
+        channel_stats.append(
+            MarketingChannelStats(
+                channel_id=channel_id,
+                channel_name=channel_name,
+                clients_total=len(channel_clients),
+                buyers_total=len(channel_buyers),
+                purchases_total=len(channel_purchases),
+                revenue_rub=int(sum(row.amount_rub for row in channel_purchases)),
+                conversion_to_purchase_percent=_percent(len(channel_buyers), len(channel_clients)),
+            )
+        )
+
+    channel_stats.sort(key=lambda row: row.revenue_rub, reverse=True)
+
+    funnel_stages = [
+        MarketingFunnelStage(
+            code="lead",
+            title="Лиды (все клиенты)",
+            clients=card_total_clients,
+            conversion_percent=100.0 if card_total_clients else 0.0,
+        ),
+        MarketingFunnelStage(
+            code="engaged",
+            title="Вовлечённые (минимум 1 визит)",
+            clients=len([row for row in clients if row.visits_count > 0]),
+            conversion_percent=_percent(len([row for row in clients if row.visits_count > 0]), card_total_clients),
+        ),
+        MarketingFunnelStage(
+            code="buyers",
+            title="Покупатели",
+            clients=card_buyers,
+            conversion_percent=card_conversion,
+        ),
+        MarketingFunnelStage(
+            code="retained",
+            title="Повторные покупки (retention)",
+            clients=len(retained_clients),
+            conversion_percent=_percent(len(retained_clients), card_total_clients),
+        ),
+    ]
+
+    segmentation_map: dict[str, list[Client]] = {
+        "Согласие на маркетинг": [row for row in clients if row.consent_marketing],
+        "Без согласия на маркетинг": [row for row in clients if not row.consent_marketing],
+        "Есть Telegram": [row for row in clients if row.tg_id is not None],
+        "Нет Telegram": [row for row in clients if row.tg_id is None],
+    }
+
+    segments: list[MarketingSegment] = []
+    for name, group_clients in segmentation_map.items():
+        group_ids = {row.id for row in group_clients}
+        buyers_in_group = len(group_ids & buyers_ids)
+        segments.append(
+            MarketingSegment(
+                segment=name,
+                clients_total=len(group_clients),
+                buyers_total=buyers_in_group,
+                conversion_percent=_percent(buyers_in_group, len(group_clients)),
+            )
+        )
+
+    campaign_ids = db.execute(
+        select(CommunicationCampaign.id).where(
+            and_(
+                CommunicationCampaign.salon_id == ctx.salon_id,
+                CommunicationCampaign.created_at >= start_ts,
+                CommunicationCampaign.created_at <= end_ts,
+            )
+        )
+    ).scalars().all()
+
+    recipient_rows: list[CommunicationRecipient] = []
+    if campaign_ids:
+        recipient_rows = db.execute(
+            select(CommunicationRecipient).where(CommunicationRecipient.campaign_id.in_(campaign_ids))
+        ).scalars().all()
+
+    sent_total = len([row for row in recipient_rows if row.sent_at is not None])
+    opened_total = len([row for row in recipient_rows if row.opened_at is not None])
+    clicked_total = len([row for row in recipient_rows if row.clicked_at is not None])
+    converted_total = len([row for row in recipient_rows if row.converted_at is not None])
+
+    automation = MarketingAutomationStats(
+        campaigns_total=len(campaign_ids),
+        sent_total=sent_total,
+        opened_total=opened_total,
+        clicked_total=clicked_total,
+        converted_total=converted_total,
+        open_rate_percent=_percent(opened_total, sent_total),
+        click_rate_percent=_percent(clicked_total, sent_total),
+        conversion_rate_percent=_percent(converted_total, sent_total),
+    )
+
+    forecast_start = max(0, start_ts - (end_ts - start_ts))
+    prev_new_clients = len([row for row in clients if forecast_start <= (row.last_visit_at or 0) < start_ts])
+    current_new_clients = len(new_clients)
+    trend = current_new_clients - prev_new_clients
+
+    forecast: list[MarketingForecastPoint] = []
+    period_seconds = max(1, end_ts - start_ts)
+    for idx in range(1, 5):
+        point_ts = end_ts + idx * period_seconds
+        forecast.append(
+            MarketingForecastPoint(
+                ts=point_ts,
+                new_clients_actual=current_new_clients,
+                new_clients_forecast=max(0, current_new_clients + trend * idx),
+            )
+        )
+
+    top_channel = channel_stats[0].channel_name if channel_stats else "—"
+    insights = [
+        f"Сквозная аналитика: лидирующий источник по выручке — {top_channel}.",
+        f"Конверсия в покупку: {card_conversion}% ({card_buyers} из {card_total_clients} клиентов).",
+        f"CRM-маркетинг: open rate {automation.open_rate_percent}%, click rate {automation.click_rate_percent}%.",
+        f"Удержание: доля клиентов с повторными покупками — {_percent(len(retained_clients), card_total_clients)}%.",
+        "Прогноз: используйте динамику новых клиентов для перераспределения бюджета в эффективные каналы.",
+    ]
+
+    return MarketingAnalyticsResponse(
+        cards=[
+            MetricCard(code="clients_total", title="Клиенты", value=card_total_clients),
+            MetricCard(code="buyers_total", title="Покупатели", value=card_buyers),
+            MetricCard(code="conversion_to_purchase", title="Конверсия в покупку, %", value=card_conversion),
+            MetricCard(code="revenue", title="Выручка, ₽", value=card_revenue),
+            MetricCard(code="avg_check", title="Средний чек, ₽", value=card_avg_check),
+        ],
+        channels=channel_stats,
+        funnel=funnel_stages,
+        segments=segments,
+        automation=automation,
+        forecast=forecast,
+        insights=insights,
     )
 
 
