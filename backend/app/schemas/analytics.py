@@ -188,9 +188,94 @@ class ControlTowerActionItem(BaseModel):
     description: str
 
 
+class ProcessKPIItem(BaseModel):
+    process_code: str
+    process_title: str
+    kpi_name: str
+    sla_name: str
+    sla_target: float
+    trigger_event: str
+    baseline_value: float
+    target_value: float
+    unit: str
+    current_value: float
+    gap_to_target: float
+    recommended_action: str
+    is_enabled: bool
+    auto_orchestration_enabled: bool
+
+
+class ProcessKPIUpdateRequest(BaseModel):
+    baseline_value: float | None = None
+    target_value: float | None = None
+    is_enabled: bool | None = None
+    auto_orchestration_enabled: bool | None = None
+
+
+class ControlTowerPolicyResponse(BaseModel):
+    max_touches_per_week: int
+    min_hours_between_touches: int
+    channel_priority: list[str]
+    min_phone_fill_percent: float
+    min_consent_fill_percent: float
+    enforce_quiet_hours: bool
+    quiet_hours_start: int
+    quiet_hours_end: int
+
+
+class ControlTowerPolicyUpdateRequest(BaseModel):
+    max_touches_per_week: int | None = Field(default=None, ge=1, le=30)
+    min_hours_between_touches: int | None = Field(default=None, ge=1, le=168)
+    channel_priority: list[str] | None = None
+    min_phone_fill_percent: float | None = Field(default=None, ge=0, le=100)
+    min_consent_fill_percent: float | None = Field(default=None, ge=0, le=100)
+    enforce_quiet_hours: bool | None = None
+    quiet_hours_start: int | None = Field(default=None, ge=0, le=23)
+    quiet_hours_end: int | None = Field(default=None, ge=0, le=23)
+
+
+class OnboardingGoalRequest(BaseModel):
+    vertical: str = Field(pattern="^(salon|clinic|retail|fitness)$")
+    goal_90d: str = Field(min_length=10, max_length=255)
+    dashboard_focus: str = Field(min_length=5, max_length=255)
+
+
+class OnboardingGoalResponse(BaseModel):
+    vertical: str
+    goal_90d: str
+    dashboard_focus: str
+    onboarding_completed: bool
+
+
+class OutcomeCatalogItemResponse(BaseModel):
+    outcome_code: str
+    title: str
+    process_code: str
+    description: str
+    event_storming_steps: list[str]
+
+
+class VerticalPresetResponse(BaseModel):
+    vertical: str
+    title: str
+    default_goal_90d: str
+    kpi_defaults: list[MetricCard]
+    process_codes: list[str]
+
+
+class EndpointSpecItem(BaseModel):
+    endpoint: str
+    business_rules: list[str]
+    exceptions: list[str]
+    data_examples: list[dict[str, str | int | float]]
+
+
 class ControlTowerAnalyticsResponse(BaseModel):
     cards: list[MetricCard]
     sales_funnel: list[ControlTowerSalesFunnelStage]
     bookings: ControlTowerBookingStats
     inventory: ControlTowerInventoryStats
     action_plan: list[ControlTowerActionItem]
+    process_kpis: list[ProcessKPIItem]
+    policy: ControlTowerPolicyResponse
+    onboarding: OnboardingGoalResponse

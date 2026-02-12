@@ -13,6 +13,7 @@ from app.models.communication import (
     ReminderDispatch,
     ReminderRule,
 )
+from app.models.control_tower import ControlTowerPolicy, ControlTowerProfile, OutcomeCatalogItem, ProcessKPIConfig
 from app.models.employee import (
     Employee,
     EmployeeCategory,
@@ -44,6 +45,8 @@ __all__ = [
     "CommunicationCampaign",
     "CommunicationRecipient",
     "CommunicationStep",
+    "ControlTowerPolicy",
+    "ControlTowerProfile",
     "Employee",
     "EmployeeCategory",
     "EmployeeHistory",
@@ -55,6 +58,8 @@ __all__ = [
     "NewsEvent",
     "NewsPost",
     "Operation",
+    "OutcomeCatalogItem",
+    "ProcessKPIConfig",
     "ReferralProgramGenerationRule",
     "ReferralProgramSetting",
     "Product",

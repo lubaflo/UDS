@@ -73,6 +73,13 @@
 - `GET /api/v1/admin/analytics/page-go` — вкладка "Посещения UDS APP" (просмотры / посетители)
 - `GET /api/v1/admin/analytics/marketing` — маркетинговая аналитика: каналы, воронка, сегменты, CRM-маркетинг, прогноз
 - `GET /api/v1/admin/analytics/control-tower` — единый русскоязычный центр управления (продажи + запись + склад + приоритетные действия).
+- `GET /api/v1/admin/analytics/control-tower/processes` — 5–7 эталонных процессов с KPI/SLA, baseline/target и триггерами автооркестрации.
+- `PUT /api/v1/admin/analytics/control-tower/processes/{process_code}` — управление baseline/target и включением процесса.
+- `GET/PUT /api/v1/admin/analytics/control-tower/policy` — policy-слой: частота касаний, приоритет каналов, контроль качества базы.
+- `GET/PUT /api/v1/admin/analytics/control-tower/onboarding-goal` — обязательный мастер цели на 90 дней при первом запуске.
+- `GET /api/v1/admin/analytics/control-tower/outcomes` — каталог user outcomes + event-storming шаги по ключевым процессам.
+- `GET /api/v1/admin/analytics/control-tower/presets/{vertical}` — готовые наборы KPI и настроек (salon/clinic/retail/fitness).
+- `GET /api/v1/admin/analytics/control-tower/endpoint-specs` — спецификации крупных endpoint (бизнес-правила, исключения, примеры данных).
 - `POST /api/v1/admin/analytics/promotion-forecast` — прогноз притока клиентов и расчет безубыточности акций
 
 ## Локальный запуск (PyCharm / terminal)
