@@ -9,18 +9,26 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db, require_roles
 from app.models import (
     AppPageEvent,
+    Appointment,
     Client,
     ClientAnalytics,
     CommunicationCampaign,
     CommunicationRecipient,
     Feedback,
     Operation,
+    Product,
     ReferralProgramGenerationRule,
     ReferralProgramSetting,
+    StockBalance,
     TrafficChannel,
 )
 from app.schemas.analytics import (
     AppVisitsAnalyticsResponse,
+    ControlTowerActionItem,
+    ControlTowerAnalyticsResponse,
+    ControlTowerBookingStats,
+    ControlTowerInventoryStats,
+    ControlTowerSalesFunnelStage,
     CustomersAnalyticsResponse,
     DistributionItem,
     FinanceAnalyticsResponse,
@@ -770,4 +778,181 @@ def promotion_forecast(
         break_even_new_clients=break_even_new_clients,
         break_even_conversion_rate_percent=break_even_conversion_rate,
         generations=generations,
+    )
+
+
+@router.get("/control-tower", response_model=ControlTowerAnalyticsResponse)
+def control_tower_analytics(
+    date_from: int | None = Query(default=None),
+    date_to: int | None = Query(default=None),
+    ctx=Depends(require_roles("owner", "admin")),
+    db: Session = Depends(get_db),
+) -> ControlTowerAnalyticsResponse:
+    start_ts, end_ts = _range_bounds(date_from, date_to)
+    now_ts = int(time.time())
+
+    clients = db.execute(select(Client).where(Client.salon_id == ctx.salon_id)).scalars().all()
+    operations = db.execute(
+        select(Operation).where(
+            and_(
+                Operation.salon_id == ctx.salon_id,
+                Operation.created_at >= start_ts,
+                Operation.created_at <= end_ts,
+            )
+        )
+    ).scalars().all()
+    appointments = db.execute(
+        select(Appointment).where(
+            and_(
+                Appointment.salon_id == ctx.salon_id,
+                Appointment.starts_at >= start_ts,
+                Appointment.starts_at <= end_ts,
+            )
+        )
+    ).scalars().all()
+
+    stock_rows = db.execute(
+        select(Product, StockBalance).join(
+            StockBalance,
+            and_(
+                StockBalance.product_id == Product.id,
+                StockBalance.salon_id == Product.salon_id,
+            ),
+        )
+        .where(Product.salon_id == ctx.salon_id)
+    ).all()
+
+    purchases = [row for row in operations if row.op_type == "purchase"]
+    buyers_ids = {row.client_id for row in purchases}
+    conversion_purchase = _percent(len(buyers_ids), len(clients))
+
+    revenue_total = int(sum(row.amount_rub for row in purchases))
+    avg_check = round(revenue_total / len(purchases), 2) if purchases else 0
+
+    appointments_total = len(appointments)
+    appointments_completed = len([row for row in appointments if row.status == "completed"])
+    appointments_cancelled = len([row for row in appointments if row.status == "cancelled"])
+    no_show_risk = _percent(appointments_cancelled, appointments_total)
+
+    future_bookings = [row for row in appointments if row.starts_at > now_ts and row.status == "scheduled"]
+    future_bookings_total = len(future_bookings)
+    future_revenue_forecast = int(round(future_bookings_total * avg_check))
+
+    sku_totals: dict[int, dict[str, int | str]] = {}
+    for product, stock in stock_rows:
+        item = sku_totals.setdefault(
+            product.id,
+            {"name": product.name, "quantity": 0, "price_rub": int(product.price_rub)},
+        )
+        item["quantity"] = int(item["quantity"]) + int(stock.quantity)
+
+    inventory_valuation = sum(int(item["quantity"]) * int(item["price_rub"]) for item in sku_totals.values())
+    low_stock_positions = len([item for item in sku_totals.values() if 0 < int(item["quantity"]) <= 5])
+    out_of_stock_positions = len([item for item in sku_totals.values() if int(item["quantity"]) <= 0])
+
+    top_stock_items = sorted(sku_totals.values(), key=lambda item: int(item["quantity"]), reverse=True)[:5]
+
+    repeat_clients = len([row for row in clients if row.visits_count >= 2])
+    clients_with_visit = len([row for row in clients if row.visits_count > 0])
+
+    cards = [
+        MetricCard(code="revenue_total", title="Выручка", value=revenue_total),
+        MetricCard(code="avg_check", title="Средний чек", value=avg_check),
+        MetricCard(code="clients_total", title="Клиенты в базе", value=len(clients)),
+        MetricCard(code="conversion_purchase", title="Конверсия в покупку", value=conversion_purchase),
+        MetricCard(code="future_bookings_revenue", title="План выручки по записям", value=future_revenue_forecast),
+        MetricCard(code="inventory_valuation", title="Оценка склада", value=inventory_valuation),
+    ]
+
+    sales_funnel = [
+        ControlTowerSalesFunnelStage(
+            code="clients",
+            title="Клиенты в базе",
+            clients=len(clients),
+            conversion_percent=100.0 if clients else 0.0,
+        ),
+        ControlTowerSalesFunnelStage(
+            code="engaged",
+            title="С визитом",
+            clients=clients_with_visit,
+            conversion_percent=_percent(clients_with_visit, len(clients)),
+        ),
+        ControlTowerSalesFunnelStage(
+            code="buyers",
+            title="Покупатели",
+            clients=len(buyers_ids),
+            conversion_percent=conversion_purchase,
+        ),
+        ControlTowerSalesFunnelStage(
+            code="repeat",
+            title="Повторные",
+            clients=repeat_clients,
+            conversion_percent=_percent(repeat_clients, len(clients)),
+        ),
+    ]
+
+    action_plan: list[ControlTowerActionItem] = []
+    if no_show_risk >= 20:
+        action_plan.append(
+            ControlTowerActionItem(
+                code="reduce_no_show",
+                title="Снизить долю неявок",
+                priority="high",
+                description="Включите автонапоминания за 1 день и 1 час, добавьте подтверждение записи в один клик.",
+            )
+        )
+    if low_stock_positions > 0 or out_of_stock_positions > 0:
+        action_plan.append(
+            ControlTowerActionItem(
+                code="inventory_replenishment",
+                title="Пополнить склад",
+                priority="medium",
+                description="Есть позиции с низким остатком. Настройте минимальные остатки и закупки по календарю.",
+            )
+        )
+    if conversion_purchase < 25:
+        action_plan.append(
+            ControlTowerActionItem(
+                code="conversion_growth",
+                title="Увеличить конверсию в покупку",
+                priority="high",
+                description="Добавьте персональные офферы в воронку и автоматические касания для сегментов без покупки.",
+            )
+        )
+    if not action_plan:
+        action_plan.append(
+            ControlTowerActionItem(
+                code="keep_growth",
+                title="Поддерживать текущий рост",
+                priority="low",
+                description="Ключевые показатели в норме. Проверьте A/B тест акций для ускорения роста выручки.",
+            )
+        )
+
+    return ControlTowerAnalyticsResponse(
+        cards=cards,
+        sales_funnel=sales_funnel,
+        bookings=ControlTowerBookingStats(
+            appointments_total=appointments_total,
+            appointments_completed=appointments_completed,
+            appointments_cancelled=appointments_cancelled,
+            no_show_risk_percent=no_show_risk,
+            future_bookings_total=future_bookings_total,
+            future_bookings_revenue_forecast_rub=future_revenue_forecast,
+        ),
+        inventory=ControlTowerInventoryStats(
+            sku_total=len(sku_totals),
+            inventory_valuation_rub=int(inventory_valuation),
+            low_stock_positions=low_stock_positions,
+            out_of_stock_positions=out_of_stock_positions,
+            top_stock_items=[
+                MetricCard(
+                    code=f"stock_item_{idx + 1}",
+                    title=str(item["name"]),
+                    value=int(item["quantity"]),
+                )
+                for idx, item in enumerate(top_stock_items)
+            ],
+        ),
+        action_plan=action_plan,
     )
