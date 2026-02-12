@@ -13,6 +13,14 @@ from app.models.communication import (
     ReminderDispatch,
     ReminderRule,
 )
+from app.models.employee import (
+    Employee,
+    EmployeeCategory,
+    EmployeeHistory,
+    EmployeePayrollAccrual,
+    EmployeeSchedule,
+    EmployeeTimeEntry,
+)
 from app.models.feedback import Feedback
 from app.models.message import Message
 from app.models.news import NewsEvent, NewsPost
@@ -36,6 +44,12 @@ __all__ = [
     "CommunicationCampaign",
     "CommunicationRecipient",
     "CommunicationStep",
+    "Employee",
+    "EmployeeCategory",
+    "EmployeeHistory",
+    "EmployeePayrollAccrual",
+    "EmployeeSchedule",
+    "EmployeeTimeEntry",
     "Feedback",
     "Message",
     "NewsEvent",
