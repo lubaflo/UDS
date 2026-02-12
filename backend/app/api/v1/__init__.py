@@ -15,6 +15,7 @@ from app.api.v1.admin import (
     news,
     operations,
     products,
+    referral_programs,
     security,
     system_settings,
     traffic,
@@ -37,6 +38,7 @@ router.include_router(communications.router)
 router.include_router(feedback.router)
 router.include_router(products.router)
 router.include_router(certificates.router)
+router.include_router(referral_programs.router)
 router.include_router(traffic.router)
 router.include_router(security.router)
 router.include_router(system_settings.router)

@@ -159,6 +159,16 @@ def get_full_dashboard(
         DashboardSectionLink(section="buyers", route="/admin/customers"),
         DashboardSectionLink(section="operations", route="/admin/operations"),
         DashboardSectionLink(section="clients", route="/admin/customers"),
+        DashboardSectionLink(
+            section="promotion",
+            route="/admin/promotion",
+            children=[
+                DashboardSectionLink(section="certificate_types", route="/admin/certificates/types"),
+                DashboardSectionLink(section="certificates", route="/admin/certificates"),
+                DashboardSectionLink(section="referral_programs", route="/admin/referral-programs/config"),
+                DashboardSectionLink(section="promotion_forecast", route="/admin/analytics/promotion-forecast"),
+            ],
+        ),
     ]
 
     return DashboardFullResponse(

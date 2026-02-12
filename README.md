@@ -20,7 +20,7 @@
 ## Основные API-разделы
 - `POST /api/v1/auth/telegram/verify` — Telegram WebApp авторизация (`initData` hash verification)
 - `GET /api/v1/admin/dashboard/summary` — статистика блока "Сегодня"
-- `GET /api/v1/admin/dashboard/full` — полный payload дашборда (алерты, промо-карточки, ссылки секций)
+- `GET /api/v1/admin/dashboard/full` — полный payload дашборда (алерты, промо-карточки, ссылки секций, включая `promotion` с вариантами (`certificate_types`, `certificates`, `referral_programs`, `promotion_forecast`))
 - `GET/POST /api/v1/admin/operations` — операции
 - `GET/POST/PUT /api/v1/admin/clients` — клиентская база
 - `GET/POST/PUT /api/v1/admin/products` — товары и услуги (тип карточки: товар/услуга)
@@ -49,6 +49,10 @@
 - `GET /api/v1/admin/communications/workflows/{campaign_id}/step-5-stats` — Шаг 5: статистика
 - `GET/POST /api/v1/admin/feedback` — обратная связь (оценки/жалобы/предложения по товару или услуге)
 - `GET/POST /api/v1/admin/certificates` — сертификаты
+- `GET /api/v1/admin/referral-programs` — варианты раздела реферальных программ (вложенный пункт «Продвижение»)
+- `GET /api/v1/admin/referral-programs/config` — текущая конфигурация реферальной программы (до 6 поколений)
+- `PUT /api/v1/admin/referral-programs/config` — обновление глубины поколений, % начислений и типа награды (баллы/деньги)
+- `GET /api/v1/admin/referral-programs/client-info` — клиентское представление начислений по очередям рекомендаций
 - `GET/POST /api/v1/admin/traffic-channels` — источники трафика
 - `GET/PUT /api/v1/admin/system-settings` — системные настройки (экран "Системные настройки")
 - `GET /api/v1/admin/analytics/customers` — вкладка "Клиенты" в статистике
@@ -56,6 +60,7 @@
 - `GET /api/v1/admin/analytics/ratings` — вкладка "Рейтинг" (по оплатам / рекомендациям)
 - `GET /api/v1/admin/analytics/levels` — вкладка "Клиенты по уровням"
 - `GET /api/v1/admin/analytics/page-go` — вкладка "Посещения UDS APP" (просмотры / посетители)
+- `POST /api/v1/admin/analytics/promotion-forecast` — прогноз притока клиентов и расчет безубыточности акций
 
 ## Локальный запуск (PyCharm / terminal)
 1. Скопируйте окружение:
