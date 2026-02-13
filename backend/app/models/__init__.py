@@ -5,6 +5,7 @@ from app.models.certificate import Certificate
 from app.models.client import Client
 from app.models.client_analytics import ClientAnalytics
 from app.models.client_activity import ClientActivity
+from app.models.client_profile import ClientChild, ClientGroupRule, ClientLoyaltyProgram
 from app.models.communication import (
     Appointment,
     CommunicationCampaign,
@@ -42,6 +43,9 @@ __all__ = [
     "Client",
     "ClientAnalytics",
     "ClientActivity",
+    "ClientChild",
+    "ClientGroupRule",
+    "ClientLoyaltyProgram",
     "CommunicationCampaign",
     "CommunicationRecipient",
     "CommunicationStep",

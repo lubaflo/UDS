@@ -42,6 +42,9 @@ def _run_startup_schema_patches() -> None:
     _ensure_column_sqlite("clients", "instagram_username", "instagram_username VARCHAR(128) NOT NULL DEFAULT ''")
     _ensure_column_sqlite("clients", "facebook_username", "facebook_username VARCHAR(128) NOT NULL DEFAULT ''")
     _ensure_column_sqlite("clients", "max_username", "max_username VARCHAR(128) NOT NULL DEFAULT ''")
+    _ensure_column_sqlite("clients", "whatsapp_phone", "whatsapp_phone VARCHAR(32) NOT NULL DEFAULT ''")
+    _ensure_column_sqlite("clients", "telegram_username", "telegram_username VARCHAR(128) NOT NULL DEFAULT ''")
+    _ensure_column_sqlite("clients", "birthday", "birthday VARCHAR(10) NOT NULL DEFAULT ''")
 
     _ensure_column_sqlite("messages", "client_tg_id", "client_tg_id INTEGER")
     _ensure_column_sqlite("messages", "channel", "channel VARCHAR(24) NOT NULL DEFAULT 'telegram'")
