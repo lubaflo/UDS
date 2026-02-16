@@ -10,7 +10,10 @@ from app.models import audit_log, client, message, salon, user  # noqa: F401 (en
 
 config = context.config
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    ini_section = config.get_section("loggers")
+    has_handlers = bool(config.get_section("handlers"))
+    if ini_section and has_handlers:
+        fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
 
