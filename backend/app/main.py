@@ -36,6 +36,15 @@ def _ensure_column_sqlite(table: str, column_name: str, ddl: str) -> None:
         conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {ddl}"))
 
 
+def _ensure_index_sqlite(table: str, index_name: str, ddl_columns: str) -> None:
+    inspector = inspect(engine)
+    indexes = {idx["name"] for idx in inspector.get_indexes(table)}
+    if index_name in indexes:
+        return
+    with engine.begin() as conn:
+        conn.execute(text(f"CREATE INDEX {index_name} ON {table} ({ddl_columns})"))
+
+
 def _run_startup_schema_patches() -> None:
     # keep backward compatibility with pre-existing sqlite db files
     _ensure_column_sqlite("clients", "vk_username", "vk_username VARCHAR(128) NOT NULL DEFAULT ''")
@@ -49,9 +58,17 @@ def _run_startup_schema_patches() -> None:
     _ensure_column_sqlite("system_settings", "global_search_enabled", "global_search_enabled BOOLEAN NOT NULL DEFAULT 0")
 
     _ensure_column_sqlite("messages", "client_tg_id", "client_tg_id INTEGER")
+    _ensure_column_sqlite("messages", "message_type", "message_type VARCHAR(16) NOT NULL DEFAULT 'individual'")
+    _ensure_column_sqlite("messages", "group_name", "group_name VARCHAR(100) NOT NULL DEFAULT ''")
     _ensure_column_sqlite("messages", "channel", "channel VARCHAR(24) NOT NULL DEFAULT 'telegram'")
+    _ensure_column_sqlite("messages", "delivery_status", "delivery_status VARCHAR(24) NOT NULL DEFAULT 'sent'")
+    _ensure_column_sqlite("messages", "scheduled_for", "scheduled_for INTEGER")
     _ensure_column_sqlite("messages", "subject", "subject VARCHAR(200) NOT NULL DEFAULT ''")
     _ensure_column_sqlite("messages", "destination", "destination VARCHAR(255) NOT NULL DEFAULT ''")
+
+    _ensure_index_sqlite("messages", "ix_messages_salon_tg_created", "salon_id, client_tg_id, created_at")
+    _ensure_index_sqlite("messages", "ix_messages_salon_status_created", "salon_id, delivery_status, created_at")
+    _ensure_index_sqlite("messages", "ix_messages_salon_channel_created", "salon_id, channel, created_at")
 
     _ensure_column_sqlite("feedback", "object_type", "object_type VARCHAR(24) NOT NULL DEFAULT 'service'")
     _ensure_column_sqlite("feedback", "object_id", "object_id INTEGER")
