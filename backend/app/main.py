@@ -10,6 +10,7 @@ from app.api.v1 import router as v1_router
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
+from app.web_admin import router as web_admin_router
 from app.models import (
     ControlTowerPolicy,
     ControlTowerProfile,
@@ -234,6 +235,7 @@ def startup() -> None:
         db.commit()
 
 
+app.include_router(web_admin_router)
 app.include_router(v1_router)
 
 
