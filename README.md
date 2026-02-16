@@ -100,6 +100,15 @@
    - Swagger: `http://localhost:8000/docs`
    - OpenAPI: `http://localhost:8000/openapi.json`
 
+### Что видно в браузере сейчас
+- В проекте есть встроенный web-экран админ-панели (MVP):
+  - `http://localhost:8000/admin/dashboard` — дашборд CRM
+  - `http://localhost:8000/admin/mailings` — экран рассылок
+- Страницы читают данные из backend API (`/api/v1/admin/...`) и показывают их в браузере.
+- API-документация также доступна:
+  - Swagger UI: `http://localhost:8000/docs`
+  - ReDoc: `http://localhost:8000/redoc`
+
 ## Docker
 Сборка:
 ```bash
