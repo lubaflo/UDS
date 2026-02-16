@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 class SystemSettingsOut(BaseModel):
     weekly_report_enabled: bool
+    global_search_enabled: bool
     responsible_first_name: str
     responsible_last_name: str
     responsible_phone: str
@@ -13,6 +14,7 @@ class SystemSettingsOut(BaseModel):
 
 class SystemSettingsUpdateRequest(BaseModel):
     weekly_report_enabled: bool
+    global_search_enabled: bool = False
     responsible_first_name: str = Field(default="", max_length=100)
     responsible_last_name: str = Field(default="", max_length=100)
     responsible_phone: str = Field(default="", max_length=32)

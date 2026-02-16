@@ -13,6 +13,7 @@ class SystemSettings(Base):
     salon_id: Mapped[int] = mapped_column(ForeignKey("salons.id", ondelete="CASCADE"), nullable=False, unique=True)
 
     weekly_report_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    global_search_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     responsible_first_name: Mapped[str] = mapped_column(String(100), nullable=False, default="")
     responsible_last_name: Mapped[str] = mapped_column(String(100), nullable=False, default="")
     responsible_phone: Mapped[str] = mapped_column(String(32), nullable=False, default="")
