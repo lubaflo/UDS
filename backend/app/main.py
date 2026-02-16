@@ -38,6 +38,13 @@ def _ensure_column_sqlite(table: str, column_name: str, ddl: str) -> None:
 
 def _run_startup_schema_patches() -> None:
     # keep backward compatibility with pre-existing sqlite db files
+    _ensure_column_sqlite("salons", "subscription_ends_at", "subscription_ends_at INTEGER")
+    _ensure_column_sqlite(
+        "salons",
+        "moderation_status",
+        "moderation_status VARCHAR(32) NOT NULL DEFAULT 'in_review'",
+    )
+
     _ensure_column_sqlite("clients", "vk_username", "vk_username VARCHAR(128) NOT NULL DEFAULT ''")
     _ensure_column_sqlite("clients", "instagram_username", "instagram_username VARCHAR(128) NOT NULL DEFAULT ''")
     _ensure_column_sqlite("clients", "facebook_username", "facebook_username VARCHAR(128) NOT NULL DEFAULT ''")
