@@ -29,6 +29,7 @@ def get_system_settings(
     row = _get_or_create_settings(db, ctx.salon_id)
     return SystemSettingsOut(
         weekly_report_enabled=row.weekly_report_enabled,
+        global_search_enabled=row.global_search_enabled,
         responsible_first_name=row.responsible_first_name,
         responsible_last_name=row.responsible_last_name,
         responsible_phone=row.responsible_phone,
@@ -44,6 +45,7 @@ def update_system_settings(
 ) -> SystemSettingsOut:
     row = _get_or_create_settings(db, ctx.salon_id)
     row.weekly_report_enabled = req.weekly_report_enabled
+    row.global_search_enabled = req.global_search_enabled
     row.responsible_first_name = req.responsible_first_name
     row.responsible_last_name = req.responsible_last_name
     row.responsible_phone = req.responsible_phone
@@ -60,6 +62,7 @@ def update_system_settings(
 
     return SystemSettingsOut(
         weekly_report_enabled=row.weekly_report_enabled,
+        global_search_enabled=row.global_search_enabled,
         responsible_first_name=row.responsible_first_name,
         responsible_last_name=row.responsible_last_name,
         responsible_phone=row.responsible_phone,
