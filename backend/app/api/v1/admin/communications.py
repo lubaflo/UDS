@@ -411,10 +411,24 @@ def post_appointment(
         salon_id=ctx.salon_id,
         actor_user_id=ctx.user_id,
         client_id=req.client_id,
+        employee_id=req.employee_id,
+        service_id=req.service_id,
         title=req.title,
         starts_at=req.starts_at,
+        duration_minutes=req.duration_minutes,
+        source=req.source,
     )
-    return AppointmentOut(id=row.id, client_id=row.client_id, title=row.title, starts_at=row.starts_at, status=row.status)
+    return AppointmentOut(
+        id=row.id,
+        client_id=row.client_id,
+        employee_id=row.employee_id,
+        service_id=row.service_id,
+        title=row.title,
+        starts_at=row.starts_at,
+        duration_minutes=row.duration_minutes,
+        status=row.status,
+        source=row.source,
+    )
 
 
 @router.post("/reminders/run", response_model=ReminderRunResponse)

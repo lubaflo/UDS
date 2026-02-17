@@ -67,6 +67,11 @@ def _run_startup_schema_patches() -> None:
     _ensure_column_sqlite("products", "item_type", "item_type VARCHAR(16) NOT NULL DEFAULT 'product'")
     _ensure_column_sqlite("products", "track_inventory", "track_inventory BOOLEAN NOT NULL DEFAULT 1")
 
+    _ensure_column_sqlite("appointments", "employee_id", "employee_id INTEGER")
+    _ensure_column_sqlite("appointments", "service_id", "service_id INTEGER")
+    _ensure_column_sqlite("appointments", "duration_minutes", "duration_minutes INTEGER NOT NULL DEFAULT 60")
+    _ensure_column_sqlite("appointments", "source", "source VARCHAR(24) NOT NULL DEFAULT 'admin_manual'")
+
 
 app.add_middleware(
     CORSMiddleware,

@@ -229,6 +229,109 @@ _BASE_HTML = """<!doctype html>
       контейнерБыстрыхКнопок.appendChild(btn);
     }});
 
+
+    async function открытьМастерЗаписи() {{
+      открытьDrawer('Создание записи', `
+        <div class="hint" style="margin-bottom:8px">Порядок: мастер → услуга → дата → время → клиент.</div>
+        <div class="row">
+          <label>Мастер
+            <select id="appt-employee"><option value="">Не выбран</option></select>
+          </label>
+          <label>Услуга
+            <select id="appt-service"><option value="">Не выбрана</option></select>
+          </label>
+        </div>
+        <div class="row">
+          <label>Дата
+            <input id="appt-date" type="date" />
+          </label>
+          <label>Время
+            <select id="appt-slot"><option value="">Выберите время</option></select>
+          </label>
+        </div>
+        <div class="row">
+          <label>ID клиента
+            <input id="appt-client-id" type="number" min="1" placeholder="например, 1" />
+          </label>
+          <label>Источник
+            <select id="appt-source">
+              <option value="online">Онлайн</option>
+              <option value="admin_phone">Звонок клиента</option>
+              <option value="admin_manual" selected>Админ вручную</option>
+            </select>
+          </label>
+        </div>
+        <div class="actions" style="margin-top:8px">
+          <button class="btn primary" id="appt-create">Создать запись</button>
+        </div>
+        <pre id="appt-result" style="margin-top:8px">Ожидание...</pre>
+      `);
+
+      const now = new Date();
+      document.getElementById('appt-date').value = now.toISOString().slice(0,10);
+
+      const optsRes = await fetch('/api/v1/app/appointments/booking-options', {{ headers: заголовки() }});
+      const opts = await optsRes.json();
+      (opts.masters || []).forEach((m) => {{
+        const op = document.createElement('option');
+        op.value = m.id;
+        op.textContent = `${{m.full_name}}${{m.position ? ` (${{m.position}})` : ''}}`;
+        document.getElementById('appt-employee').appendChild(op);
+      }});
+      (opts.services || []).forEach((s) => {{
+        const op = document.createElement('option');
+        op.value = s.id;
+        op.textContent = `${{s.name}} · ${{s.price_rub}}₽`;
+        document.getElementById('appt-service').appendChild(op);
+      }});
+
+      async function loadSlots() {{
+        const date = document.getElementById('appt-date').value;
+        if (!date) return;
+        const employeeId = document.getElementById('appt-employee').value;
+        const dayStart = Math.floor(new Date(`${{date}}T00:00:00Z`).getTime()/1000);
+        const url = `/api/v1/app/appointments/slots?date_ts=${{dayStart}}${{employeeId ? `&employee_id=${{employeeId}}` : ''}}`;
+        const res = await fetch(url, {{ headers: заголовки() }});
+        const data = await res.json();
+        const slotSelect = document.getElementById('appt-slot');
+        slotSelect.innerHTML = '<option value="">Выберите время</option>';
+        (data.items || []).forEach((slot) => {{
+          const op = document.createElement('option');
+          op.value = slot.starts_at;
+          op.textContent = slot.label;
+          slotSelect.appendChild(op);
+        }});
+      }}
+
+      document.getElementById('appt-date').addEventListener('change', loadSlots);
+      document.getElementById('appt-employee').addEventListener('change', loadSlots);
+      await loadSlots();
+
+      document.getElementById('appt-create').addEventListener('click', async () => {{
+        const result = document.getElementById('appt-result');
+        const payload = {{
+          client_id: Number(document.getElementById('appt-client-id').value),
+          employee_id: document.getElementById('appt-employee').value ? Number(document.getElementById('appt-employee').value) : null,
+          service_id: document.getElementById('appt-service').value ? Number(document.getElementById('appt-service').value) : null,
+          starts_at: Number(document.getElementById('appt-slot').value),
+          source: document.getElementById('appt-source').value,
+          title: 'Запись из календаря',
+          duration_minutes: 60,
+        }};
+        try {{
+          const res = await fetch('/api/v1/admin/appointments', {{
+            method: 'POST',
+            headers: заголовки(),
+            body: JSON.stringify(payload),
+          }});
+          const data = await res.json();
+          result.textContent = JSON.stringify({{ статус: res.status, данные: data }}, null, 2);
+        }} catch (e) {{
+          result.textContent = String(e);
+        }}
+      }});
+    }}
+
     function показатьФормуДействия(action) {{
       const isGet = action.method === 'GET';
       const json = JSON.stringify(action.body || {{}}, null, 2);
@@ -468,6 +571,10 @@ def _section_body(section: dict[str, str]) -> str:
           document.querySelectorAll('[data-section-action]').forEach((el) => {{
             const action = JSON.parse(el.getAttribute('data-section-action'));
             el.addEventListener('click', async () => {{
+              if (section.key === 'appointments' && action.label === '+ Запись') {{
+                await открытьМастерЗаписи();
+                return;
+              }}
               if (action.type === 'drawer') {{
                 открытьDrawer(action.label, `<div class=\"hint\">${{action.value}}</div>`);
                 return;

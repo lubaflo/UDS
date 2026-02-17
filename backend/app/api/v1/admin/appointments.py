@@ -12,6 +12,8 @@ from app.schemas.appointments import (
 )
 from app.services.appointments_service import (
     get_clients_map,
+    get_employees_map,
+    get_services_map,
     list_appointments,
     update_appointment_status,
 )
@@ -20,12 +22,43 @@ from app.services.communications_service import create_appointment
 router = APIRouter(prefix="/admin/appointments", tags=["admin.appointments"])
 
 
+def _to_out(db: Session, *, salon_id: int, items) -> list[AdminAppointmentOut]:
+    clients_map = get_clients_map(db, salon_id=salon_id, client_ids=[x.client_id for x in items])
+    employees_map = get_employees_map(db, salon_id=salon_id, employee_ids=[x.employee_id for x in items if x.employee_id])
+    services_map = get_services_map(db, salon_id=salon_id, service_ids=[x.service_id for x in items if x.service_id])
+    out = []
+    for x in items:
+        client = clients_map.get(x.client_id)
+        employee = employees_map.get(x.employee_id) if x.employee_id else None
+        service = services_map.get(x.service_id) if x.service_id else None
+        out.append(
+            AdminAppointmentOut(
+                id=x.id,
+                client_id=x.client_id,
+                client_name=client.full_name if client else "",
+                employee_id=x.employee_id,
+                employee_name=employee.full_name if employee else "",
+                service_id=x.service_id,
+                service_name=service.name if service else "",
+                title=x.title,
+                starts_at=x.starts_at,
+                duration_minutes=x.duration_minutes,
+                status=x.status,
+                source=x.source,
+            )
+        )
+    return out
+
+
 @router.get("", response_model=AdminAppointmentsListResponse)
 def get_admin_appointments(
     date_from: int | None = Query(default=None),
     date_to: int | None = Query(default=None),
     client_id: int | None = Query(default=None),
+    employee_id: int | None = Query(default=None),
+    service_id: int | None = Query(default=None),
     status: str | None = Query(default=None, pattern="^(scheduled|cancelled|completed)$"),
+    source: str | None = Query(default=None, pattern="^(online|admin_phone|admin_manual)$"),
     ctx=Depends(require_roles("owner", "admin")),
     db: Session = Depends(get_db),
 ) -> AdminAppointmentsListResponse:
@@ -35,20 +68,12 @@ def get_admin_appointments(
         date_from=date_from,
         date_to=date_to,
         client_id=client_id,
+        employee_id=employee_id,
+        service_id=service_id,
         status=status,
+        source=source,
     )
-    clients_map = get_clients_map(db, salon_id=ctx.salon_id, client_ids=[x.client_id for x in items])
-    out = [
-        AdminAppointmentOut(
-            id=x.id,
-            client_id=x.client_id,
-            client_name=(clients_map.get(x.client_id).full_name if clients_map.get(x.client_id) else ""),
-            title=x.title,
-            starts_at=x.starts_at,
-            status=x.status,
-        )
-        for x in items
-    ]
+    out = _to_out(db, salon_id=ctx.salon_id, items=items)
     return AdminAppointmentsListResponse(items=out, total=len(out))
 
 
@@ -63,19 +88,14 @@ def create_admin_appointment(
         salon_id=ctx.salon_id,
         actor_user_id=ctx.user_id,
         client_id=req.client_id,
+        employee_id=req.employee_id,
+        service_id=req.service_id,
         title=req.title,
         starts_at=req.starts_at,
+        duration_minutes=req.duration_minutes,
+        source=req.source,
     )
-    clients_map = get_clients_map(db, salon_id=ctx.salon_id, client_ids=[row.client_id])
-    client_name = clients_map.get(row.client_id).full_name if clients_map.get(row.client_id) else ""
-    return AdminAppointmentOut(
-        id=row.id,
-        client_id=row.client_id,
-        client_name=client_name,
-        title=row.title,
-        starts_at=row.starts_at,
-        status=row.status,
-    )
+    return _to_out(db, salon_id=ctx.salon_id, items=[row])[0]
 
 
 @router.patch("/{appointment_id}/status", response_model=AdminAppointmentOut)
@@ -92,13 +112,4 @@ def patch_admin_appointment_status(
         appointment_id=appointment_id,
         status=req.status,
     )
-    clients_map = get_clients_map(db, salon_id=ctx.salon_id, client_ids=[row.client_id])
-    client_name = clients_map.get(row.client_id).full_name if clients_map.get(row.client_id) else ""
-    return AdminAppointmentOut(
-        id=row.id,
-        client_id=row.client_id,
-        client_name=client_name,
-        title=row.title,
-        starts_at=row.starts_at,
-        status=row.status,
-    )
+    return _to_out(db, salon_id=ctx.salon_id, items=[row])[0]

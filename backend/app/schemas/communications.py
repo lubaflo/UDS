@@ -95,16 +95,24 @@ class ReminderRulesResponse(BaseModel):
 
 class AppointmentCreateRequest(BaseModel):
     client_id: int
+    employee_id: int | None = None
+    service_id: int | None = None
     title: str = Field(default="Процедура", max_length=200)
     starts_at: int
+    duration_minutes: int = Field(default=60, ge=5, le=8 * 60)
+    source: str = Field(default="admin_manual", pattern="^(online|admin_phone|admin_manual)$")
 
 
 class AppointmentOut(BaseModel):
     id: int
     client_id: int
+    employee_id: int | None
+    service_id: int | None
     title: str
     starts_at: int
+    duration_minutes: int
     status: str
+    source: str
 
 
 class ReminderRunResponse(BaseModel):

@@ -250,13 +250,21 @@ def create_appointment(
     client_id: int,
     title: str,
     starts_at: int,
+    employee_id: int | None = None,
+    service_id: int | None = None,
+    duration_minutes: int = 60,
+    source: str = "admin_manual",
 ) -> Appointment:
     row = Appointment(
         salon_id=salon_id,
         client_id=client_id,
+        employee_id=employee_id,
+        service_id=service_id,
         title=title,
         starts_at=starts_at,
+        duration_minutes=duration_minutes,
         status="scheduled",
+        source=source,
     )
     db.add(row)
     db.flush()
