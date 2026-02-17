@@ -69,14 +69,19 @@ class Appointment(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     salon_id: Mapped[int] = mapped_column(ForeignKey("salons.id", ondelete="CASCADE"), nullable=False)
     client_id: Mapped[int] = mapped_column(ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+    employee_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id", ondelete="SET NULL"), nullable=True)
+    service_id: Mapped[int | None] = mapped_column(ForeignKey("products.id", ondelete="SET NULL"), nullable=True)
 
     title: Mapped[str] = mapped_column(String(200), nullable=False, default="Процедура")
     starts_at: Mapped[int] = mapped_column(nullable=False)
+    duration_minutes: Mapped[int] = mapped_column(nullable=False, default=60)
     status: Mapped[str] = mapped_column(String(24), nullable=False, default="scheduled")  # scheduled/cancelled/completed
+    source: Mapped[str] = mapped_column(String(24), nullable=False, default="admin_manual")  # online/admin_phone/admin_manual
 
     __table_args__ = (
         Index("ix_appointments_salon_starts", "salon_id", "starts_at"),
         Index("ix_appointments_client_starts", "client_id", "starts_at"),
+        Index("ix_appointments_salon_employee_starts", "salon_id", "employee_id", "starts_at"),
     )
 
 
