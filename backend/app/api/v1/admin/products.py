@@ -7,7 +7,14 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_roles
-from app.models import InventoryLocation, Product, ProductImage, StockBalance, StockMovement
+from app.models import (
+    InventoryLocation,
+    Product,
+    ProductImage,
+    ServiceSpecificationItem,
+    StockBalance,
+    StockMovement,
+)
 from app.schemas.products import (
     InventoryLocationCreateRequest,
     InventoryLocationOut,
@@ -16,6 +23,8 @@ from app.schemas.products import (
     ProductOut,
     ProductStockSummaryOut,
     ProductUpdateRequest,
+    ServiceSpecificationItemCreateRequest,
+    ServiceSpecificationItemOut,
     StockByLocationOut,
     StockMovementCreateRequest,
     StockMovementListResponse,
@@ -35,6 +44,8 @@ def _product_out(db: Session, row: Product) -> ProductOut:
     return ProductOut(
         id=row.id,
         name=row.name,
+        full_name=row.full_name,
+        receipt_name=row.receipt_name,
         description=row.description,
         category=row.category,
         unit=row.unit,
@@ -42,8 +53,18 @@ def _product_out(db: Session, row: Product) -> ProductOut:
         track_inventory=row.track_inventory,
         is_promo=row.is_promo,
         price_rub=row.price_rub,
+        cost_price_rub=row.cost_price_rub,
         sku=row.sku,
+        barcode=row.barcode,
+        manufacturer=row.manufacturer,
+        country_of_origin=row.country_of_origin,
+        tax_rate_percent=row.tax_rate_percent,
+        is_traceable=row.is_traceable,
+        service_duration_min=row.service_duration_min,
         stock=row.stock,
+        critical_stock=row.critical_stock,
+        desired_stock=row.desired_stock,
+        comment=row.comment,
         images=list(images),
         created_at=row.created_at,
         updated_at=row.updated_at,
@@ -70,6 +91,19 @@ def _movement_out(db: Session, row: StockMovement) -> StockMovementOut:
     )
 
 
+def _service_spec_item_out(db: Session, row: ServiceSpecificationItem) -> ServiceSpecificationItemOut:
+    material_name = db.execute(select(Product.name).where(Product.id == row.material_product_id)).scalar_one()
+    return ServiceSpecificationItemOut(
+        id=row.id,
+        service_product_id=row.service_product_id,
+        material_product_id=row.material_product_id,
+        material_name=material_name,
+        quantity=row.quantity,
+        unit=row.unit,
+        comment=row.comment,
+    )
+
+
 @router.get("", response_model=ProductListResponse)
 def list_products(
     q: str | None = Query(default=None),
@@ -83,7 +117,13 @@ def list_products(
     query = select(Product).where(Product.salon_id == ctx.salon_id)
     if q:
         like = f"%{q.strip()}%"
-        query = query.where((Product.name.ilike(like)) | (Product.description.ilike(like)) | (Product.sku.ilike(like)))
+        query = query.where(
+            (Product.name.ilike(like))
+            | (Product.full_name.ilike(like))
+            | (Product.description.ilike(like))
+            | (Product.sku.ilike(like))
+            | (Product.barcode.ilike(like))
+        )
     if category:
         query = query.where(Product.category == category)
     if item_type:
@@ -111,6 +151,8 @@ def create_product(
     row = Product(
         salon_id=ctx.salon_id,
         name=req.name,
+        full_name=req.full_name,
+        receipt_name=req.receipt_name,
         description=req.description,
         category=req.category,
         unit=req.unit,
@@ -118,8 +160,18 @@ def create_product(
         track_inventory=track_inventory,
         is_promo=req.is_promo,
         price_rub=req.price_rub,
+        cost_price_rub=req.cost_price_rub,
         sku=req.sku,
+        barcode=req.barcode,
+        manufacturer=req.manufacturer,
+        country_of_origin=req.country_of_origin,
+        tax_rate_percent=req.tax_rate_percent,
+        is_traceable=req.is_traceable,
+        service_duration_min=req.service_duration_min,
         stock=req.stock,
+        critical_stock=req.critical_stock,
+        desired_stock=req.desired_stock,
+        comment=req.comment,
         created_at=now,
         updated_at=now,
     )
@@ -130,9 +182,9 @@ def create_product(
 
     if track_inventory and req.stock > 0:
         location = db.execute(
-            select(InventoryLocation).where(
-                and_(InventoryLocation.salon_id == ctx.salon_id, InventoryLocation.is_active.is_(True))
-            ).order_by(InventoryLocation.id.asc())
+            select(InventoryLocation)
+            .where(and_(InventoryLocation.salon_id == ctx.salon_id, InventoryLocation.is_active.is_(True)))
+            .order_by(InventoryLocation.id.asc())
         ).scalars().first()
         if location is not None:
             db.add(StockBalance(salon_id=ctx.salon_id, product_id=row.id, location_id=location.id, quantity=req.stock))
@@ -143,8 +195,8 @@ def create_product(
                     location_id=location.id,
                     movement_type="income",
                     quantity=req.stock,
-                    unit_cost_rub=0,
-                    total_cost_rub=0,
+                    unit_cost_rub=req.cost_price_rub,
+                    total_cost_rub=req.cost_price_rub * req.stock,
                     counterparty="",
                     comment="Начальный остаток при создании карточки",
                     occurred_at=now,
@@ -350,6 +402,119 @@ def create_stock_movement(
     )
 
     return _movement_out(db, movement)
+
+
+@router.get("/{product_id}/specification", response_model=list[ServiceSpecificationItemOut])
+def list_service_specification(
+    product_id: int,
+    ctx=Depends(require_roles("owner", "admin")),
+    db: Session = Depends(get_db),
+) -> list[ServiceSpecificationItemOut]:
+    service = db.execute(
+        select(Product).where(and_(Product.id == product_id, Product.salon_id == ctx.salon_id))
+    ).scalar_one()
+    if service.item_type != "service":
+        raise HTTPException(status_code=400, detail="Спецификацию можно вести только для услуг")
+
+    rows = db.execute(
+        select(ServiceSpecificationItem)
+        .where(
+            and_(
+                ServiceSpecificationItem.salon_id == ctx.salon_id,
+                ServiceSpecificationItem.service_product_id == product_id,
+            )
+        )
+        .order_by(ServiceSpecificationItem.id.asc())
+    ).scalars().all()
+    return [_service_spec_item_out(db, row) for row in rows]
+
+
+@router.post("/{product_id}/specification", response_model=ServiceSpecificationItemOut)
+def add_service_specification_item(
+    product_id: int,
+    req: ServiceSpecificationItemCreateRequest,
+    ctx=Depends(require_roles("owner", "admin")),
+    db: Session = Depends(get_db),
+) -> ServiceSpecificationItemOut:
+    service = db.execute(
+        select(Product).where(and_(Product.id == product_id, Product.salon_id == ctx.salon_id))
+    ).scalar_one()
+    if service.item_type != "service":
+        raise HTTPException(status_code=400, detail="Спецификацию можно вести только для услуг")
+
+    material = db.execute(
+        select(Product).where(and_(Product.id == req.material_product_id, Product.salon_id == ctx.salon_id))
+    ).scalar_one_or_none()
+    if material is None or material.item_type != "product":
+        raise HTTPException(status_code=400, detail="Расходник должен быть карточкой товара")
+
+    existing = db.execute(
+        select(ServiceSpecificationItem).where(
+            and_(
+                ServiceSpecificationItem.salon_id == ctx.salon_id,
+                ServiceSpecificationItem.service_product_id == product_id,
+                ServiceSpecificationItem.material_product_id == req.material_product_id,
+            )
+        )
+    ).scalar_one_or_none()
+
+    if existing is not None:
+        existing.quantity = req.quantity
+        existing.unit = req.unit
+        existing.comment = req.comment
+        row = existing
+    else:
+        row = ServiceSpecificationItem(
+            salon_id=ctx.salon_id,
+            service_product_id=product_id,
+            material_product_id=req.material_product_id,
+            quantity=req.quantity,
+            unit=req.unit,
+            comment=req.comment,
+        )
+        db.add(row)
+        db.flush()
+
+    write_audit(
+        db,
+        salon_id=ctx.salon_id,
+        actor_user_id=ctx.user_id,
+        action="service.specification.upsert",
+        entity="service_specification_item",
+        entity_id=str(row.id),
+    )
+    return _service_spec_item_out(db, row)
+
+
+@router.delete("/{product_id}/specification/{item_id}")
+def remove_service_specification_item(
+    product_id: int,
+    item_id: int,
+    ctx=Depends(require_roles("owner", "admin")),
+    db: Session = Depends(get_db),
+) -> dict[str, bool]:
+    row = db.execute(
+        select(ServiceSpecificationItem).where(
+            and_(
+                ServiceSpecificationItem.id == item_id,
+                ServiceSpecificationItem.service_product_id == product_id,
+                ServiceSpecificationItem.salon_id == ctx.salon_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Позиция спецификации не найдена")
+
+    db.delete(row)
+    write_audit(
+        db,
+        salon_id=ctx.salon_id,
+        actor_user_id=ctx.user_id,
+        action="service.specification.delete",
+        entity="service_specification_item",
+        entity_id=str(item_id),
+    )
+    return {"ok": True}
 
 
 @router.put("/{product_id}", response_model=ProductOut)

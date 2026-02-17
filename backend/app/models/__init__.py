@@ -28,7 +28,14 @@ from app.models.message import Message
 from app.models.news import NewsEvent, NewsPost
 from app.models.operation import Operation
 from app.models.referral_program import ReferralProgramGenerationRule, ReferralProgramSetting
-from app.models.product import InventoryLocation, Product, ProductImage, StockBalance, StockMovement
+from app.models.product import (
+    InventoryLocation,
+    Product,
+    ProductImage,
+    ServiceSpecificationItem,
+    StockBalance,
+    StockMovement,
+)
 from app.models.salon import Salon
 from app.models.system_settings import SystemSettings
 from app.models.traffic_channel import TrafficChannel
@@ -71,6 +78,7 @@ __all__ = [
     "InventoryLocation",
     "StockBalance",
     "StockMovement",
+    "ServiceSpecificationItem",
     "ReminderDispatch",
     "ReminderRule",
     "Salon",

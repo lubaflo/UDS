@@ -66,6 +66,18 @@ def _run_startup_schema_patches() -> None:
 
     _ensure_column_sqlite("products", "item_type", "item_type VARCHAR(16) NOT NULL DEFAULT 'product'")
     _ensure_column_sqlite("products", "track_inventory", "track_inventory BOOLEAN NOT NULL DEFAULT 1")
+    _ensure_column_sqlite("products", "full_name", "full_name VARCHAR(255) NOT NULL DEFAULT ''")
+    _ensure_column_sqlite("products", "receipt_name", "receipt_name VARCHAR(128) NOT NULL DEFAULT ''")
+    _ensure_column_sqlite("products", "cost_price_rub", "cost_price_rub INTEGER NOT NULL DEFAULT 0")
+    _ensure_column_sqlite("products", "barcode", "barcode VARCHAR(64) NOT NULL DEFAULT ''")
+    _ensure_column_sqlite("products", "manufacturer", "manufacturer VARCHAR(200) NOT NULL DEFAULT ''")
+    _ensure_column_sqlite("products", "country_of_origin", "country_of_origin VARCHAR(100) NOT NULL DEFAULT ''")
+    _ensure_column_sqlite("products", "tax_rate_percent", "tax_rate_percent INTEGER NOT NULL DEFAULT 20")
+    _ensure_column_sqlite("products", "is_traceable", "is_traceable BOOLEAN NOT NULL DEFAULT 0")
+    _ensure_column_sqlite("products", "service_duration_min", "service_duration_min INTEGER NOT NULL DEFAULT 0")
+    _ensure_column_sqlite("products", "critical_stock", "critical_stock INTEGER NOT NULL DEFAULT 0")
+    _ensure_column_sqlite("products", "desired_stock", "desired_stock INTEGER NOT NULL DEFAULT 0")
+    _ensure_column_sqlite("products", "comment", "comment VARCHAR(1000) NOT NULL DEFAULT ''")
 
     _ensure_column_sqlite("appointments", "employee_id", "employee_id INTEGER")
     _ensure_column_sqlite("appointments", "service_id", "service_id INTEGER")

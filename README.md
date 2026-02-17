@@ -23,10 +23,11 @@
 - `GET /api/v1/admin/dashboard/full` — полный payload дашборда (алерты, промо-карточки, ссылки секций, включая `promotion` с вариантами (`certificate_types`, `certificates`, `referral_programs`, `promotion_forecast`))
 - `GET/POST /api/v1/admin/operations` — операции
 - `GET/POST/PUT /api/v1/admin/clients` — клиентская база
-- `GET/POST/PUT /api/v1/admin/products` — товары и услуги (тип карточки: товар/услуга)
+- `GET/POST/PUT /api/v1/admin/products` — товары и услуги (расширенная карточка: название/полное название/производитель/налоги/штрихкод/себестоимость/остатки)
 - `GET/POST /api/v1/admin/products/locations` — склады/торговые точки
 - `GET /api/v1/admin/products/{product_id}/stock` — остатки по складам/точкам
 - `GET /api/v1/admin/products/movements`, `POST /api/v1/admin/products/{product_id}/movements` — движение товаров
+- `GET/POST/DELETE /api/v1/admin/products/{product_id}/specification` — спецификация услуги (расходники для оказания услуги)
 - `GET/POST/PUT /api/v1/admin/campaigns` — рассылки
 - `GET/POST/PUT /api/v1/admin/news` — новости компании (лента публикаций)
 - `POST /api/v1/admin/news/track` — трекинг событий по новости (view/transition/click/add_to_cart/booking/purchase)

@@ -13,6 +13,8 @@ class Product(Base):
     salon_id: Mapped[int] = mapped_column(ForeignKey("salons.id", ondelete="CASCADE"), nullable=False)
 
     name: Mapped[str] = mapped_column(String(100), nullable=False)
+    full_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    receipt_name: Mapped[str] = mapped_column(String(128), nullable=False, default="")
     description: Mapped[str] = mapped_column(String(5000), nullable=False, default="")
     category: Mapped[str] = mapped_column(String(100), nullable=False, default="Без категории")
     unit: Mapped[str] = mapped_column(String(32), nullable=False, default="Штуки")
@@ -20,8 +22,18 @@ class Product(Base):
     track_inventory: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_promo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     price_rub: Mapped[int] = mapped_column(nullable=False, default=0)
+    cost_price_rub: Mapped[int] = mapped_column(nullable=False, default=0)
     sku: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    barcode: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    manufacturer: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    country_of_origin: Mapped[str] = mapped_column(String(100), nullable=False, default="")
+    tax_rate_percent: Mapped[int] = mapped_column(nullable=False, default=20)
+    is_traceable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    service_duration_min: Mapped[int] = mapped_column(nullable=False, default=0)
     stock: Mapped[int] = mapped_column(nullable=False, default=0)
+    critical_stock: Mapped[int] = mapped_column(nullable=False, default=0)
+    desired_stock: Mapped[int] = mapped_column(nullable=False, default=0)
+    comment: Mapped[str] = mapped_column(String(1000), nullable=False, default="")
     created_at: Mapped[int] = mapped_column(nullable=False)
     updated_at: Mapped[int] = mapped_column(nullable=False)
 
@@ -95,4 +107,27 @@ class StockMovement(Base):
         Index("ix_stock_movements_salon_created", "salon_id", "created_at"),
         Index("ix_stock_movements_salon_product_created", "salon_id", "product_id", "created_at"),
         Index("ix_stock_movements_salon_location_created", "salon_id", "location_id", "created_at"),
+    )
+
+
+class ServiceSpecificationItem(Base):
+    __tablename__ = "service_specification_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    salon_id: Mapped[int] = mapped_column(ForeignKey("salons.id", ondelete="CASCADE"), nullable=False)
+    service_product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    material_product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    quantity: Mapped[int] = mapped_column(nullable=False, default=1)
+    unit: Mapped[str] = mapped_column(String(32), nullable=False, default="Штуки")
+    comment: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+
+    __table_args__ = (
+        Index(
+            "ix_service_specification_service_material",
+            "salon_id",
+            "service_product_id",
+            "material_product_id",
+            unique=True,
+        ),
+        Index("ix_service_specification_service", "salon_id", "service_product_id"),
     )
