@@ -128,9 +128,10 @@ _BASE_HTML = """<!doctype html>
     .drawer-body {{ padding:12px; overflow:auto; }}
     textarea, input, select {{ width:100%; border:1px solid var(--line); border-radius:10px; padding:8px; font:inherit; }}
     .row {{ display:grid; gap:8px; grid-template-columns: 1fr 1fr; margin-bottom:8px; }}
-    .product-spec {{ max-width: 1040px; margin: 0 auto; }}
+    .product-spec {{ max-width: 1120px; margin: 0 auto; }}
+    .product-spec-card {{ background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 18px 16px; }}
     .spec-grid {{ display:grid; grid-template-columns: 220px 1fr; gap:10px 14px; align-items:center; }}
-    .spec-label {{ text-align:right; font-weight:600; line-height:1.15; }}
+    .spec-label {{ text-align:right; font-weight:500; font-size:18px; line-height:1.15; }}
     .spec-label-with-icon {{ display:flex; align-items:center; justify-content:flex-end; gap:6px; }}
     .spec-label-icon {{ width:16px; height:16px; border-radius:50%; border:1px solid var(--line); color:#7284a7; font-size:11px; line-height:1; display:inline-flex; align-items:center; justify-content:center; background:#f8fbff; }}
     .spec-field {{ width:100%; }}
@@ -145,11 +146,14 @@ _BASE_HTML = """<!doctype html>
     .spec-with-suffix input {{ border-radius:10px 0 0 10px; }}
     .spec-barcode-row {{ display:grid; grid-template-columns: 1fr 52px; }}
     .spec-icon-btn {{ border:1px solid var(--line); border-left:none; border-radius:0 10px 10px 0; background:#fff; color:#2a3f69; cursor:pointer; font-size:22px; line-height:1; }}
-    .spec-save {{ margin-top:10px; border-top:1px dashed var(--line); padding-top:10px; }}
+    .spec-save {{ margin-top:16px; border-top:1px dashed var(--line); padding-top:14px; }}
+    .spec-save .btn.primary {{ min-width:130px; }}
+    .spec-grid textarea {{ min-height:56px; resize:vertical; }}
 
     @media (max-width: 900px) {{
       .spec-grid {{ grid-template-columns: 1fr; }}
-      .spec-label {{ text-align:left; }}
+      .product-spec-card {{ padding:12px; }}
+      .spec-label {{ text-align:left; font-size:16px; }}
       .spec-inline, .spec-inline.two {{ grid-template-columns: 1fr; }}
     }}
 
@@ -633,34 +637,34 @@ def _products_section_body(section: dict[str, str]) -> str:
             titleEl.textContent = 'Спецификация товара';
             bodyEl.innerHTML = `
               <div class="product-spec">
-                <div class="hint" style="margin-bottom:8px">Форма карточки товара в стиле POS: обязательные поля, остатки и налоги.</div>
-                <div class="spec-grid">
-                  <div class="spec-label">Название</div>
-                  <div class="spec-field"><input id="p-name" maxlength="100" placeholder="Например, Шампунь увлажняющий" /></div>
+                <div class="product-spec-card">
+                  <div class="spec-grid">
+                    <div class="spec-label">Название</div>
+                    <div class="spec-field"><input id="p-name" maxlength="100" /></div>
 
-                  <div class="spec-label">Название в чеке</div>
-                  <div class="spec-field"><input id="p-receipt-name" maxlength="100" placeholder="Будет напечатано в чеке" /></div>
+                    <div class="spec-label">Название в чеке</div>
+                    <div class="spec-field"><input id="p-receipt-name" maxlength="100" /></div>
 
-                  <div class="spec-label">Артикул</div>
-                  <div class="spec-field"><input id="p-sku" /></div>
+                    <div class="spec-label">Артикул</div>
+                    <div class="spec-field"><input id="p-sku" /></div>
 
-                  <div class="spec-label">Штрихкод</div>
-                  <div class="spec-field spec-barcode-row">
-                    <input id="p-barcode" placeholder="EAN/UPC" style="border-radius:10px 0 0 10px" />
-                    <button type="button" id="p-barcode-generate" class="spec-icon-btn" title="Сгенерировать штрихкод">↻</button>
-                  </div>
+                    <div class="spec-label">Штрихкод</div>
+                    <div class="spec-field spec-barcode-row">
+                      <input id="p-barcode" style="border-radius:10px 0 0 10px" />
+                      <button type="button" id="p-barcode-generate" class="spec-icon-btn" title="Сгенерировать штрихкод">↻</button>
+                    </div>
 
-                  <div class="spec-label">Категория</div>
-                  <div class="spec-field">
-                    <select id="p-category">
-                      <option value="Основные товары">Основные товары</option>
-                      <option value="Расходные материалы">Расходные материалы</option>
-                      <option value="Сопутствующие товары">Сопутствующие товары</option>
-                    </select>
-                  </div>
+                    <div class="spec-label">Категория</div>
+                    <div class="spec-field">
+                      <select id="p-category">
+                        <option value="Основные товары">Основные товары</option>
+                        <option value="Расходные материалы">Расходные материалы</option>
+                        <option value="Сопутствующие товары">Сопутствующие товары</option>
+                      </select>
+                    </div>
 
-                  <div class="spec-label">Единицы<br/>измерения</div>
-                  <div class="spec-field spec-inline">
+                    <div class="spec-label">Единицы измерения</div>
+                    <div class="spec-field spec-inline">
                     <div>
                       <div class="spec-note">Для продажи</div>
                       <select id="p-unit-sale">
@@ -688,8 +692,8 @@ def _products_section_body(section: dict[str, str]) -> str:
                     </div>
                   </div>
 
-                  <div class="spec-label">Массы</div>
-                  <div class="spec-field spec-inline two">
+                    <div class="spec-label">Массы</div>
+                    <div class="spec-field spec-inline two">
                     <div>
                       <div class="spec-note">Масса нетто</div>
                       <div class="spec-with-suffix">
@@ -706,20 +710,20 @@ def _products_section_body(section: dict[str, str]) -> str:
                     </div>
                   </div>
 
-                  <div class="spec-label">Цена продажи</div>
-                  <div class="spec-field spec-with-suffix">
-                    <input id="p-price" type="number" min="0" step="0.01" value="0" />
-                    <span class="suffix">₽</span>
-                  </div>
+                    <div class="spec-label">Цена продажи</div>
+                    <div class="spec-field spec-with-suffix">
+                      <input id="p-price" type="number" min="0" step="0.01" value="0" />
+                      <span class="suffix">₽</span>
+                    </div>
 
-                  <div class="spec-label"><span class="spec-label-with-icon">Себестоимость <span class="spec-label-icon" title="Нужна для расчета маржинальности">i</span></span></div>
-                  <div class="spec-field spec-with-suffix">
-                    <input id="p-cost" type="number" min="0" step="0.01" value="0" />
-                    <span class="suffix">₽</span>
-                  </div>
+                    <div class="spec-label"><span class="spec-label-with-icon">Себестоимость <span class="spec-label-icon" title="Нужна для расчета маржинальности">i</span></span></div>
+                    <div class="spec-field spec-with-suffix">
+                      <input id="p-cost" type="number" min="0" step="0.01" value="0" />
+                      <span class="suffix">₽</span>
+                    </div>
 
-                  <div class="spec-label">Система<br/>налогообложения</div>
-                  <div class="spec-field spec-inline two">
+                    <div class="spec-label">Система налогообложения</div>
+                    <div class="spec-field spec-inline two">
                     <select id="p-tax-system">
                       <option value="По умолчанию">По умолчанию</option>
                       <option value="ОСН">ОСН</option>
@@ -737,28 +741,29 @@ def _products_section_body(section: dict[str, str]) -> str:
                     </div>
                   </div>
 
-                  <div class="spec-label"><span class="spec-label-with-icon">Критичный<br/>остаток <span class="spec-label-icon" title="При достижении этого уровня товар помечается как дефицитный">i</span></span></div>
-                  <div class="spec-field spec-with-suffix">
+                    <div class="spec-label"><span class="spec-label-with-icon">Критичный остаток <span class="spec-label-icon" title="При достижении этого уровня товар помечается как дефицитный">i</span></span></div>
+                    <div class="spec-field spec-with-suffix">
                     <input id="p-critical" type="number" min="0" step="0.01" value="0" />
                     <span class="suffix">шт.</span>
                   </div>
 
-                  <div class="spec-label"><span class="spec-label-with-icon">Желаемый<br/>остаток <span class="spec-label-icon" title="Целевой остаток для автоматических подсказок закупки">i</span></span></div>
-                  <div class="spec-field spec-with-suffix">
+                    <div class="spec-label"><span class="spec-label-with-icon">Желаемый остаток <span class="spec-label-icon" title="Целевой остаток для автоматических подсказок закупки">i</span></span></div>
+                    <div class="spec-field spec-with-suffix">
                     <input id="p-desired" type="number" min="0" step="0.01" value="0" />
                     <span class="suffix">шт.</span>
                   </div>
 
-                  <div class="spec-label">Комментарий</div>
-                  <div class="spec-field"><textarea id="p-comment" rows="3" placeholder="Комментарий для сотрудников"></textarea></div>
-                </div>
-                <div class="spec-save">
-                  <div class="actions">
-                    <button class="btn primary" id="p-create">Сохранить</button>
+                    <div class="spec-label">Комментарий</div>
+                    <div class="spec-field"><textarea id="p-comment" rows="3"></textarea></div>
+                  </div>
+                  <div class="spec-save">
+                    <div class="actions">
+                      <button class="btn primary" id="p-create">Сохранить</button>
+                    </div>
                   </div>
                 </div>
               </div>
-              <pre id="p-result" style="margin-top:8px">Ожидание...</pre>
+              <pre id="p-result" style="margin-top:8px; display:none">Ожидание...</pre>
             `;
 
             const barcodeEl = document.getElementById('p-barcode');
@@ -819,6 +824,7 @@ def _products_section_body(section: dict[str, str]) -> str:
                 images: [],
               }};
               if (!payload.name) {{
+                resultEl.style.display = 'block';
                 resultEl.textContent = 'Ошибка: заполните название товара.';
                 return;
               }}
@@ -827,10 +833,12 @@ def _products_section_body(section: dict[str, str]) -> str:
                 const response = await fetch('/api/v1/admin/products', {{ method: 'POST', headers: apiHeaders(), body: JSON.stringify(payload) }});
                 const data = await readJson(response);
                 statusEl.textContent = response.ok ? 'сохранено' : 'ошибка';
+                resultEl.style.display = response.ok ? 'none' : 'block';
                 resultEl.textContent = JSON.stringify({{ status: response.status, data }}, null, 2);
                 if (response.ok) await fetchProducts();
               }} catch (e) {{
                 statusEl.textContent = 'ошибка';
+                resultEl.style.display = 'block';
                 resultEl.textContent = String(e);
               }}
             }});
