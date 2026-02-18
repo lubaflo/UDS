@@ -131,6 +131,8 @@ _BASE_HTML = """<!doctype html>
     .product-spec {{ max-width: 1040px; margin: 0 auto; }}
     .spec-grid {{ display:grid; grid-template-columns: 220px 1fr; gap:10px 14px; align-items:center; }}
     .spec-label {{ text-align:right; font-weight:600; line-height:1.15; }}
+    .spec-label-with-icon {{ display:flex; align-items:center; justify-content:flex-end; gap:6px; }}
+    .spec-label-icon {{ width:16px; height:16px; border-radius:50%; border:1px solid var(--line); color:#7284a7; font-size:11px; line-height:1; display:inline-flex; align-items:center; justify-content:center; background:#f8fbff; }}
     .spec-field {{ width:100%; }}
     .spec-inline {{ display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px; }}
     .spec-inline.two {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
@@ -141,6 +143,8 @@ _BASE_HTML = """<!doctype html>
     .spec-with-suffix {{ display:grid; grid-template-columns: 1fr 58px; }}
     .spec-with-suffix .suffix {{ border:1px solid var(--line); border-left:none; border-radius:0 10px 10px 0; display:flex; align-items:center; justify-content:center; background:#f8faff; color:#2a3f69; }}
     .spec-with-suffix input {{ border-radius:10px 0 0 10px; }}
+    .spec-barcode-row {{ display:grid; grid-template-columns: 1fr 52px; }}
+    .spec-icon-btn {{ border:1px solid var(--line); border-left:none; border-radius:0 10px 10px 0; background:#fff; color:#2a3f69; cursor:pointer; font-size:22px; line-height:1; }}
     .spec-save {{ margin-top:10px; border-top:1px dashed var(--line); padding-top:10px; }}
 
     @media (max-width: 900px) {{
@@ -641,7 +645,10 @@ def _products_section_body(section: dict[str, str]) -> str:
                   <div class="spec-field"><input id="p-sku" /></div>
 
                   <div class="spec-label">Штрихкод</div>
-                  <div class="spec-field"><input id="p-barcode" placeholder="EAN/UPC" /></div>
+                  <div class="spec-field spec-barcode-row">
+                    <input id="p-barcode" placeholder="EAN/UPC" style="border-radius:10px 0 0 10px" />
+                    <button type="button" id="p-barcode-generate" class="spec-icon-btn" title="Сгенерировать штрихкод">↻</button>
+                  </div>
 
                   <div class="spec-label">Категория</div>
                   <div class="spec-field">
@@ -705,7 +712,7 @@ def _products_section_body(section: dict[str, str]) -> str:
                     <span class="suffix">₽</span>
                   </div>
 
-                  <div class="spec-label">Себестоимость</div>
+                  <div class="spec-label"><span class="spec-label-with-icon">Себестоимость <span class="spec-label-icon" title="Нужна для расчета маржинальности">i</span></span></div>
                   <div class="spec-field spec-with-suffix">
                     <input id="p-cost" type="number" min="0" step="0.01" value="0" />
                     <span class="suffix">₽</span>
@@ -730,13 +737,13 @@ def _products_section_body(section: dict[str, str]) -> str:
                     </div>
                   </div>
 
-                  <div class="spec-label">Критичный<br/>остаток</div>
+                  <div class="spec-label"><span class="spec-label-with-icon">Критичный<br/>остаток <span class="spec-label-icon" title="При достижении этого уровня товар помечается как дефицитный">i</span></span></div>
                   <div class="spec-field spec-with-suffix">
                     <input id="p-critical" type="number" min="0" step="0.01" value="0" />
                     <span class="suffix">шт.</span>
                   </div>
 
-                  <div class="spec-label">Желаемый<br/>остаток</div>
+                  <div class="spec-label"><span class="spec-label-with-icon">Желаемый<br/>остаток <span class="spec-label-icon" title="Целевой остаток для автоматических подсказок закупки">i</span></span></div>
                   <div class="spec-field spec-with-suffix">
                     <input id="p-desired" type="number" min="0" step="0.01" value="0" />
                     <span class="suffix">шт.</span>
@@ -753,6 +760,22 @@ def _products_section_body(section: dict[str, str]) -> str:
               </div>
               <pre id="p-result" style="margin-top:8px">Ожидание...</pre>
             `;
+
+            const barcodeEl = document.getElementById('p-barcode');
+            document.getElementById('p-barcode-generate').addEventListener('click', () => {{
+              const randomPart = String(Math.floor(100000000000 + Math.random() * 900000000000));
+              const checksum = randomPart.split('').reduce((acc, digit, index) => acc + Number(digit) * (index % 2 ? 3 : 1), 0);
+              const control = (10 - (checksum % 10)) % 10;
+              barcodeEl.value = `${{randomPart}}${{control}}`;
+            }});
+
+            const nameEl = document.getElementById('p-name');
+            const receiptNameEl = document.getElementById('p-receipt-name');
+            nameEl.addEventListener('input', () => {{
+              if (!receiptNameEl.value.trim()) {{
+                receiptNameEl.value = nameEl.value;
+              }}
+            }});
 
             document.getElementById('p-create').addEventListener('click', async () => {{
               const resultEl = document.getElementById('p-result');
