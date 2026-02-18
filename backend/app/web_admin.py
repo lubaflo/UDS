@@ -128,37 +128,41 @@ _BASE_HTML = """<!doctype html>
     .drawer-body {{ padding:12px; overflow:auto; }}
     textarea, input, select {{ width:100%; border:1px solid var(--line); border-radius:10px; padding:8px; font:inherit; }}
     .row {{ display:grid; gap:8px; grid-template-columns: 1fr 1fr; margin-bottom:8px; }}
-    .product-spec {{ max-width: 1120px; margin: 0 auto; padding-top: 8px; }}
-    .product-spec-card {{ background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 18px 16px; box-shadow:0 2px 12px rgba(18,36,73,.04); }}
-    .spec-grid {{ display:grid; grid-template-columns: 220px 1fr; gap:10px 14px; align-items:center; }}
-    .spec-label {{ text-align:right; font-weight:500; font-size:18px; line-height:1.15; }}
+    .product-spec-shell {{ background:#f3f5f9; border:1px solid #dde3ee; border-radius:0; margin:-10px -12px; padding:18px 0 0; min-height:620px; }}
+    .product-spec {{ max-width: 1120px; margin: 0 auto; padding: 0 18px 18px; }}
+    .product-spec-card {{ background:#fff; border:1px solid #d9e0ec; border-radius:14px; padding:14px 18px 16px; box-shadow:0 1px 2px rgba(18,36,73,.04); }}
+    .spec-grid {{ display:grid; grid-template-columns: 200px 1fr; gap:10px 14px; align-items:center; }}
+    .spec-label {{ text-align:right; font-weight:500; font-size:14px; line-height:1.2; color:#2c3e61; }}
     .spec-label-with-icon {{ display:flex; align-items:center; justify-content:flex-end; gap:6px; }}
     .spec-label-icon {{ width:16px; height:16px; border-radius:50%; border:1px solid var(--line); color:#7284a7; font-size:11px; line-height:1; display:inline-flex; align-items:center; justify-content:center; background:#f8fbff; }}
     .spec-field {{ width:100%; }}
     .spec-inline {{ display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px; }}
     .spec-inline.two {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
-    .spec-note {{ color:var(--muted); font-size:11px; margin-bottom:4px; }}
+    .spec-note {{ color:#7f8ea7; font-size:14px; margin-bottom:6px; }}
     .spec-input-group {{ display:grid; grid-template-columns: 44px 1fr; }}
     .spec-input-group .prefix {{ border:1px solid var(--line); border-right:none; border-radius:10px 0 0 10px; display:flex; align-items:center; justify-content:center; background:#f8faff; color:#5b6d8f; }}
     .spec-input-group input {{ border-radius:0 10px 10px 0; }}
     .spec-with-suffix {{ display:grid; grid-template-columns: 1fr 58px; }}
-    .spec-with-suffix .suffix {{ border:1px solid var(--line); border-left:none; border-radius:0 10px 10px 0; display:flex; align-items:center; justify-content:center; background:#f8faff; color:#2a3f69; }}
+    .spec-with-suffix .suffix {{ border:1px solid var(--line); border-left:none; border-radius:0 10px 10px 0; display:flex; align-items:center; justify-content:center; background:#f6f8fc; color:#2a3f69; }}
     .spec-with-suffix input {{ border-radius:10px 0 0 10px; }}
     .spec-barcode-row {{ display:grid; grid-template-columns: 1fr 52px; }}
     .spec-icon-btn {{ border:1px solid var(--line); border-left:none; border-radius:0 10px 10px 0; background:#fff; color:#2a3f69; cursor:pointer; font-size:22px; line-height:1; }}
     .spec-field-with-help {{ display:grid; grid-template-columns: 1fr 24px; gap:8px; align-items:center; }}
     .spec-help-icon {{ width:18px; height:18px; border-radius:50%; border:1px solid #ccd8ef; color:#7d8eaf; font-size:11px; line-height:1; display:inline-flex; align-items:center; justify-content:center; background:#f8fbff; cursor:default; }}
     .spec-tax-row {{ display:grid; grid-template-columns: minmax(0, 1fr) 90px minmax(0, 1fr); gap:10px; align-items:center; }}
-    .spec-tax-title {{ color:#2a3f69; font-size:16px; text-align:center; }}
+    .spec-tax-title {{ color:#2a3f69; font-size:14px; text-align:center; }}
     .spec-form-error {{ margin-top:10px; border:1px solid #f3b6bf; background:#fff1f4; color:#9c2f42; padding:10px; border-radius:10px; display:none; }}
-    .spec-save {{ margin-top:16px; border-top:1px dashed var(--line); padding-top:14px; }}
-    .spec-save .btn.primary {{ min-width:130px; }}
+    .spec-save {{ margin-top:16px; border-top:1px dashed var(--line); padding-top:18px; }}
+    .spec-save .btn.primary {{ min-width:130px; background:#f7cb00; border-color:#efbf00; border-radius:12px; color:#22314e; }}
     .spec-grid textarea {{ min-height:56px; resize:vertical; }}
+    .product-spec textarea, .product-spec input, .product-spec select {{ border-color:#d5ddeb; background:#fff; height:46px; }}
+    .product-spec textarea {{ height:auto; min-height:56px; }}
 
     @media (max-width: 900px) {{
+      .product-spec-shell {{ margin:0; border-radius:12px; min-height:auto; }}
       .spec-grid {{ grid-template-columns: 1fr; }}
       .product-spec-card {{ padding:12px; }}
-      .spec-label {{ text-align:left; font-size:16px; }}
+      .spec-label {{ text-align:left; font-size:14px; }}
       .spec-inline, .spec-inline.two {{ grid-template-columns: 1fr; }}
       .spec-tax-row {{ grid-template-columns: 1fr; }}
       .spec-tax-title {{ text-align:left; }}
@@ -583,7 +587,7 @@ def _products_section_body(section: dict[str, str]) -> str:
             <button class="btn" data-products-mode="services">Услуги</button>
           </div>
           <div class="actions">
-            <button class="btn primary" data-products-screen="add" data-products-group="goods" id="products-add">Спецификация товара</button>
+            <button class="btn primary" data-products-screen="add" data-products-group="goods" id="products-add">Создание товара</button>
             <button class="btn" data-products-screen="inventory" id="products-inventory">Учет наличия</button>
             <button class="btn" data-products-screen="audit" id="products-audit">Инвентаризация</button>
             <button class="btn" data-products-screen="spec" id="products-spec">Создание товара</button>
@@ -596,7 +600,7 @@ def _products_section_body(section: dict[str, str]) -> str:
       </section>
 
       <section class="panel" id="products-workspace">
-        <div class="panel-head"><span id="products-screen-title">Спецификация товара</span><span class="hint" id="products-status">ожидание</span></div>
+        <div class="panel-head"><span id="products-screen-title">Создание товара</span><span class="hint" id="products-status">ожидание</span></div>
         <div class="panel-body" id="products-screen-body">Загрузка...</div>
       </section>
 
@@ -641,11 +645,12 @@ def _products_section_body(section: dict[str, str]) -> str:
           }}
 
           function renderAddProduct() {{
-            titleEl.textContent = 'Спецификация товара';
+            titleEl.textContent = 'Создание товара';
             bodyEl.innerHTML = `
-              <div class="product-spec">
-                <div class="product-spec-card">
-                  <div class="spec-grid">
+              <div class="product-spec-shell">
+                <div class="product-spec">
+                  <div class="product-spec-card">
+                    <div class="spec-grid">
                     <div class="spec-label">Название</div>
                     <div class="spec-field"><input id="p-name" maxlength="100" /></div>
 
@@ -766,10 +771,11 @@ def _products_section_body(section: dict[str, str]) -> str:
 
                     <div class="spec-label">Комментарий</div>
                     <div class="spec-field"><textarea id="p-comment" rows="3"></textarea></div>
-                  </div>
-                  <div class="spec-save">
-                    <div class="actions">
-                      <button class="btn primary" id="p-create">Сохранить</button>
+                    </div>
+                    <div class="spec-save">
+                      <div class="actions">
+                        <button class="btn primary" id="p-create">Сохранить</button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1277,7 +1283,7 @@ def _products_section_body(section: dict[str, str]) -> str:
             add: renderAddProduct,
             inventory: renderInventory,
             audit: renderInventoryAudit,
-            spec: renderSpecification,
+            spec: renderAddProduct,
             'service-create': renderServiceCreate,
             'service-tech-card': renderServiceTechCard,
             'service-inventory': renderServiceInventory,
