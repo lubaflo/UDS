@@ -245,8 +245,15 @@ _BASE_HTML = """<!doctype html>
     const модульКлюч = 'админка_модули';
     const наборПоУмолчанию = {{services:true, products:true, messaging:true, marketing:true, analytics:true, certificates:true, referrals:true, security:true, core:true}};
 
-    function взятьТокен() {{ return localStorage.getItem(токенКлюч) || ''; }}
-    function сохранитьТокен(value) {{ localStorage.setItem(токенКлюч, value); }}
+    function нормализоватьТокен(value) {{
+      return (value || '').trim().replace(/^Bearer\s+/i, '');
+    }}
+    function взятьТокен() {{
+      return нормализоватьТокен(localStorage.getItem(токенКлюч) || '');
+    }}
+    function сохранитьТокен(value) {{
+      localStorage.setItem(токенКлюч, нормализоватьТокен(value));
+    }}
     function заголовки() {{
       const t = взятьТокен();
       return t ? {{'Authorization': `Bearer ${{t}}`, 'Content-Type':'application/json'}} : {{'Content-Type':'application/json'}};
@@ -261,7 +268,7 @@ _BASE_HTML = """<!doctype html>
 
     document.getElementById('drawer-close').addEventListener('click', закрытьDrawer);
     document.getElementById('save-token').addEventListener('click', () => {{
-      const value = document.getElementById('token-input').value.trim();
+      const value = нормализоватьТокен(document.getElementById('token-input').value);
       сохранитьТокен(value);
       window.dispatchEvent(new CustomEvent('admin-token-updated', {{ detail: {{ token: value }} }}));
       alert('Токен сохранен');
@@ -608,8 +615,9 @@ def _products_section_body(section: dict[str, str]) -> str:
       <script>
         (function() {{
           const tokenKey = 'админка_токен';
+          const normalizeToken = (value) => (value || '').trim().replace(/^Bearer\s+/i, '');
           function fallbackHeaders() {{
-            const token = localStorage.getItem(tokenKey) || '';
+            const token = normalizeToken(localStorage.getItem(tokenKey) || '');
             return token ? {{ Authorization: `Bearer ${{token}}`, 'Content-Type': 'application/json' }} : {{ 'Content-Type': 'application/json' }};
           }}
           const apiHeaders = () => (window.заголовки ? window.заголовки() : fallbackHeaders());
