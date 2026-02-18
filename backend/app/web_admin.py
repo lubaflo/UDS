@@ -84,7 +84,8 @@ _BASE_HTML = """<!doctype html>
     .menu-item .left {{ display:flex; align-items:center; gap: 7px; }}
     .menu-item .icon {{ width: 18px; text-align:center; opacity: .95; }}
     .menu-item.active, .menu-item:hover {{ background: var(--sidebar-pill); }}
-    .menu-submenu {{ display:flex; flex-direction:column; gap:6px; margin:-2px 0 8px 28px; }}
+    .menu-submenu {{ display:none; flex-direction:column; gap:6px; margin:-2px 0 8px 28px; }}
+    .menu-submenu.open {{ display:flex; }}
     .menu-subitem {{
       display:block; text-decoration:none; color:#dbe6ff; font-size:12px;
       padding:7px 10px; border-radius:10px; border:1px solid rgba(206, 220, 255, .24);
@@ -443,6 +444,20 @@ _BASE_HTML = """<!doctype html>
       }});
     }});
 
+    document.querySelectorAll('[data-menu-toggle]').forEach((link) => {{
+      link.addEventListener('click', (e) => {{
+        const menuKey = link.getAttribute('data-menu-toggle');
+        const submenu = document.querySelector(`[data-submenu="${{menuKey}}"]`);
+        if (!submenu) return;
+        const shouldOpen = !submenu.classList.contains('open');
+        document.querySelectorAll('[data-submenu]').forEach((node) => node.classList.remove('open'));
+        if (shouldOpen) {{
+          e.preventDefault();
+          submenu.classList.add('open');
+        }}
+      }});
+    }});
+
     document.addEventListener('keydown', (e) => {{
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {{
         e.preventDefault();
@@ -489,17 +504,20 @@ def _menu(active: str) -> str:
     for section in SECTIONS:
         css = "active" if active == section["key"] else ""
         submenu_html = ""
-        if section["key"] == "products" and active == "products":
+        if section["key"] == "products":
+            submenu_css = "open" if active == "products" else ""
             submenu_html = """
-              <div class=\"menu-submenu\">
-                <a class=\"menu-subitem active\" href=\"#products-add\">Добавить товар</a>
-                <a class=\"menu-subitem\" href=\"#products-inventory\">Учет наличия</a>
-                <a class=\"menu-subitem\" href=\"#products-spec\">Создание спецификации</a>
+              <div class=\"menu-submenu {submenu_css}\" data-submenu=\"products\">
+                <a class=\"menu-subitem\" href=\"/admin/products#products-add\">Спецификация товара</a>
+                <a class=\"menu-subitem\" href=\"/admin/products#products-inventory\">Учет наличия</a>
+                <a class=\"menu-subitem\" href=\"/admin/products#products-audit\">Инвентаризация</a>
+                <a class=\"menu-subitem\" href=\"/admin/products#products-spec\">Создание спецификации</a>
               </div>
-            """
+            """.format(submenu_css=submenu_css)
+        toggle_attr = f' data-menu-toggle="{section["key"]}"' if section["key"] == "products" else ""
         items.append(
             f"""
-            <a class=\"menu-item {css}\" href=\"/admin/{section['key']}\" data-module=\"{section['module']}\">
+            <a class=\"menu-item {css}\" href=\"/admin/{section['key']}\" data-module=\"{section['module']}\"{toggle_attr}>
               <span class=\"left\"><span class=\"icon\">{section['icon']}</span>{section['title']}</span>
             </a>
             {submenu_html}
@@ -513,7 +531,7 @@ def _products_section_body(section: dict[str, str]) -> str:
       <section class="header">
         <div>
           <h1>{section['title']}</h1>
-          <div class="hint">Полный цикл: добавление товара → складской учет → спецификация услуги.</div>
+          <div class="hint">Полный цикл: спецификация товара → учет наличия → инвентаризация → спецификация услуги.</div>
         </div>
       </section>
 
@@ -521,15 +539,16 @@ def _products_section_body(section: dict[str, str]) -> str:
         <div class="panel-head"><span>Рабочее подменю</span><span class="hint">товары</span></div>
         <div class="panel-body">
           <div class="actions">
-            <button class="btn primary" data-products-screen="add" id="products-add">Добавить товар</button>
+            <button class="btn primary" data-products-screen="add" id="products-add">Спецификация товара</button>
             <button class="btn" data-products-screen="inventory" id="products-inventory">Учет наличия</button>
+            <button class="btn" data-products-screen="audit" id="products-audit">Инвентаризация</button>
             <button class="btn" data-products-screen="spec" id="products-spec">Создание спецификации</button>
           </div>
         </div>
       </section>
 
       <section class="panel" id="products-workspace">
-        <div class="panel-head"><span id="products-screen-title">Добавление товара</span><span class="hint" id="products-status">ожидание</span></div>
+        <div class="panel-head"><span id="products-screen-title">Спецификация товара</span><span class="hint" id="products-status">ожидание</span></div>
         <div class="panel-body" id="products-screen-body">Загрузка...</div>
       </section>
 
@@ -572,77 +591,77 @@ def _products_section_body(section: dict[str, str]) -> str:
           }}
 
           function renderAddProduct() {{
-            titleEl.textContent = 'Добавление товара';
+            titleEl.textContent = 'Спецификация товара';
             bodyEl.innerHTML = `
-              <div class="hint" style="margin-bottom:8px">Сначала категория, затем наименование и карточка для магазина.</div>
-              <div class="row"> 
-                <label>Категория<input id="p-category" value="Без категории" /></label>
-                <label>Наименование<input id="p-name" placeholder="Например, Шампунь увлажняющий" /></label>
+              <div class="hint" style="margin-bottom:8px">Карточка товара для магазина: название, описание, цена, медиа и варианты.</div>
+              <div class="row">
+                <label>Название<input id="p-name" maxlength="100" placeholder="Например, Шампунь увлажняющий" /></label>
+                <label>Описание<textarea id="p-description" rows="4" maxlength="5000"></textarea></label>
               </div>
-              <div class="row"> 
-                <label>Полное наименование<input id="p-full-name" /></label>
-                <label>Наименование в чеке<input id="p-receipt-name" /></label>
+              <div class="row">
+                <label>Разместить в категории<input id="p-category" value="Без категории" /></label>
+                <label>Единица измерения<input id="p-unit" value="Штуки" /></label>
               </div>
-              <div class="row"> 
-                <label>Тип
-                  <select id="p-item-type"><option value="product">Товар</option><option value="service">Услуга</option></select>
-                </label>
-                <label>Ед. измерения<input id="p-unit" value="Штуки" /></label>
+              <div class="row">
+                <label style="display:flex;align-items:center;gap:8px;"><input id="p-promo" type="checkbox" style="width:auto"/>Акционный товар</label>
+                <label>Цена, ₽<input id="p-price" type="number" min="0" value="0" /></label>
               </div>
-              <div class="row"> 
-                <label>Цена продажи, ₽<input id="p-price" type="number" min="0" value="0" /></label>
-                <label>Себестоимость, ₽<input id="p-cost" type="number" min="0" value="0" /></label>
-              </div>
-              <div class="row"> 
+              <div class="row">
                 <label>Артикул<input id="p-sku" /></label>
-                <label>Штрихкод<input id="p-barcode" /></label>
+                <label>Ссылки на фото (по одной в строке)<textarea id="p-images" rows="4" placeholder="https://.../photo1.jpg"></textarea></label>
               </div>
-              <div class="row"> 
-                <label>Критичный остаток<input id="p-critical" type="number" min="0" value="0" /></label>
-                <label>Желаемый остаток<input id="p-desired" type="number" min="0" value="0" /></label>
+              <div class="row">
+                <label>Вариант товара<input id="p-variant" placeholder="Например, 250 мл" /></label>
+                <label>Комментарий<textarea id="p-comment" rows="2" placeholder="Примечание для сотрудников"></textarea></label>
               </div>
-              <div class="row"> 
-                <label>Начальный остаток<input id="p-stock" type="number" min="0" value="0" /></label>
-                <label style="display:flex;align-items:center;gap:8px;"><input id="p-track" type="checkbox" checked style="width:auto"/>Вести учет наличия</label>
-              </div>
-              <label>Описание<textarea id="p-description" rows="4"></textarea></label>
-              <label>Комментарий для учета<textarea id="p-comment" rows="3"></textarea></label>
               <div class="actions" style="margin-top:8px">
-                <button class="btn primary" id="p-create">Сохранить товар</button>
+                <button class="btn" id="p-add-variant">Добавить вариант</button>
+                <button class="btn primary" id="p-create">Сохранить</button>
               </div>
+              <pre id="p-variant-result" style="margin-top:8px">Варианты: []</pre>
               <pre id="p-result" style="margin-top:8px">Ожидание...</pre>
             `;
 
-            document.getElementById('p-item-type').addEventListener('change', (e) => {{
-              const isProduct = e.target.value === 'product';
-              document.getElementById('p-track').checked = isProduct;
-              document.getElementById('p-track').disabled = !isProduct;
+            const variants = [];
+            const variantsEl = document.getElementById('p-variant-result');
+            document.getElementById('p-add-variant').addEventListener('click', () => {{
+              const name = document.getElementById('p-variant').value.trim();
+              if (!name) return;
+              variants.push(name);
+              document.getElementById('p-variant').value = '';
+              variantsEl.textContent = `Варианты: ${{JSON.stringify(variants)}}`;
             }});
 
             document.getElementById('p-create').addEventListener('click', async () => {{
               const resultEl = document.getElementById('p-result');
-              const itemType = document.getElementById('p-item-type').value;
+              const images = document
+                .getElementById('p-images')
+                .value
+                .split('\n')
+                .map((x) => x.trim())
+                .filter(Boolean);
               const payload = {{
                 name: document.getElementById('p-name').value.trim(),
                 category: document.getElementById('p-category').value.trim() || 'Без категории',
-                full_name: document.getElementById('p-full-name').value.trim(),
-                receipt_name: document.getElementById('p-receipt-name').value.trim(),
+                full_name: document.getElementById('p-name').value.trim(),
+                receipt_name: document.getElementById('p-name').value.trim(),
                 description: document.getElementById('p-description').value.trim(),
-                item_type: itemType,
+                item_type: 'product',
                 unit: document.getElementById('p-unit').value.trim() || 'Штуки',
+                is_promo: document.getElementById('p-promo').checked,
                 price_rub: Number(document.getElementById('p-price').value || 0),
-                cost_price_rub: Number(document.getElementById('p-cost').value || 0),
+                cost_price_rub: 0,
                 sku: document.getElementById('p-sku').value.trim(),
-                barcode: document.getElementById('p-barcode').value.trim(),
-                critical_stock: Number(document.getElementById('p-critical').value || 0),
-                desired_stock: Number(document.getElementById('p-desired').value || 0),
-                stock: Number(document.getElementById('p-stock').value || 0),
-                track_inventory: itemType === 'product' && document.getElementById('p-track').checked,
-                comment: document.getElementById('p-comment').value.trim(),
-                images: [],
+                barcode: '',
+                critical_stock: 0,
+                desired_stock: 0,
+                stock: 0,
+                track_inventory: true,
+                comment: [document.getElementById('p-comment').value.trim(), variants.length ? `Варианты: ${{variants.join(', ')}}` : ''].filter(Boolean).join(' | '),
+                images,
               }};
               if (!payload.name) {{
-                resultEl.textContent = 'Ошибка: заполните наименование.';
+                resultEl.textContent = 'Ошибка: заполните название товара.';
                 return;
               }}
               statusEl.textContent = 'сохранение';
@@ -661,25 +680,30 @@ def _products_section_body(section: dict[str, str]) -> str:
 
           function renderInventory() {{
             titleEl.textContent = 'Учет наличия товара';
-            const goods = state.products.filter((x) => x.item_type === 'product');
+            const goods = state.products.filter((x) => x.item_type === 'product' && x.track_inventory);
             bodyEl.innerHTML = `
+              <div class="hint" style="margin-bottom:8px">Операции движения: приход, расход, корректировка остатков.</div>
               <div class="row">
                 <label>Товар<select id="i-product">${{optionRows(goods, 'id', 'name')}}</select></label>
-                <label>Склад<select id="i-location">${{optionRows(state.locations, 'id', 'name')}}</select></label>
+                <label>Склад/точка<select id="i-location">${{optionRows(state.locations, 'id', 'name')}}</select></label>
               </div>
               <div class="row">
-                <label>Операция
-                  <select id="i-type"><option value="income">Приход</option><option value="expense">Списание</option><option value="adjustment">Корректировка</option></select>
+                <label>Тип движения
+                  <select id="i-type">
+                    <option value="income">Приход</option>
+                    <option value="expense">Расход</option>
+                    <option value="adjustment">Корректировка</option>
+                  </select>
                 </label>
-                <label>Количество<input id="i-qty" type="number" min="1" value="1" /></label>
+                <label>Количество<input id="i-qty" type="number" min="0" value="1" /></label>
               </div>
               <div class="row">
-                <label>Цена закупки, ₽<input id="i-cost" type="number" min="0" value="0" /></label>
-                <label>Контрагент<input id="i-counterparty" /></label>
+                <label>Себестоимость за единицу, ₽<input id="i-cost" type="number" min="0" value="0" /></label>
+                <label>Контрагент<input id="i-counterparty" placeholder="Поставщик/ответственный" /></label>
               </div>
               <label>Комментарий<textarea id="i-comment" rows="3"></textarea></label>
               <div class="actions" style="margin-top:8px">
-                <button class="btn primary" id="i-save">Провести операцию</button>
+                <button class="btn primary" id="i-save">Сохранить операцию</button>
                 <button class="btn" id="i-refresh">Обновить движения</button>
               </div>
               <pre id="i-result" style="margin-top:8px">Ожидание...</pre>
@@ -720,6 +744,86 @@ def _products_section_body(section: dict[str, str]) -> str:
               const data = await readJson(response);
               resultEl.textContent = JSON.stringify({{ status: response.status, data }}, null, 2);
             }});
+          }}
+
+          function renderInventoryAudit() {{
+            titleEl.textContent = 'Инвентаризация';
+            const goods = state.products.filter((x) => x.item_type === 'product' && x.track_inventory);
+            bodyEl.innerHTML = `
+              <div class="hint" style="margin-bottom:8px">Проведение инвентаризации: сравните факт с текущим остатком и зафиксируйте корректировку.</div>
+              <div class="row">
+                <label>Товар<select id="a-product">${{optionRows(goods, 'id', 'name')}}</select></label>
+                <label>Склад/точка<select id="a-location">${{optionRows(state.locations, 'id', 'name')}}</select></label>
+              </div>
+              <div class="row">
+                <label>Текущий остаток<input id="a-current" type="number" value="0" disabled /></label>
+                <label>Фактический остаток<input id="a-counted" type="number" min="0" value="0" /></label>
+              </div>
+              <label>Комментарий инвентаризации<textarea id="a-comment" rows="3" placeholder="Номер акта, ответственный, причина расхождения"></textarea></label>
+              <div class="actions" style="margin-top:8px">
+                <button class="btn" id="a-load">Обновить текущий остаток</button>
+                <button class="btn primary" id="a-apply">Провести инвентаризацию</button>
+                <button class="btn" id="a-history">История корректировок</button>
+              </div>
+              <pre id="a-result" style="margin-top:8px">Ожидание...</pre>
+            `;
+
+            const resultEl = document.getElementById('a-result');
+            if (!goods.length || !state.locations.length) {{
+              resultEl.textContent = 'Нужны минимум 1 товар и 1 склад (локация).';
+              return;
+            }}
+
+            async function loadCurrentStock() {{
+              const productId = Number(document.getElementById('a-product').value);
+              const locationId = Number(document.getElementById('a-location').value);
+              const response = await fetch(`/api/v1/admin/products/${{productId}}/stock`, {{ headers: apiHeaders() }});
+              const data = await readJson(response);
+              const byLocation = response.ok && data.by_location ? data.by_location : [];
+              const current = byLocation.find((x) => x.location_id === locationId);
+              document.getElementById('a-current').value = current ? current.quantity : 0;
+              resultEl.textContent = JSON.stringify({{ status: response.status, data }}, null, 2);
+            }}
+
+            document.getElementById('a-load').addEventListener('click', loadCurrentStock);
+            document.getElementById('a-product').addEventListener('change', loadCurrentStock);
+            document.getElementById('a-location').addEventListener('change', loadCurrentStock);
+
+            document.getElementById('a-apply').addEventListener('click', async () => {{
+              statusEl.textContent = 'сохранение';
+              const productId = Number(document.getElementById('a-product').value);
+              const payload = {{
+                location_id: Number(document.getElementById('a-location').value),
+                movement_type: 'adjustment',
+                quantity: Number(document.getElementById('a-counted').value || 0),
+                unit_cost_rub: 0,
+                counterparty: 'Инвентаризация',
+                comment: document.getElementById('a-comment').value.trim() || 'Инвентаризация',
+              }};
+              try {{
+                const response = await fetch(`/api/v1/admin/products/${{productId}}/movements`, {{ method: 'POST', headers: apiHeaders(), body: JSON.stringify(payload) }});
+                const data = await readJson(response);
+                statusEl.textContent = response.ok ? 'сохранено' : 'ошибка';
+                resultEl.textContent = JSON.stringify({{ status: response.status, data }}, null, 2);
+                if (response.ok) {{
+                  await fetchProducts();
+                  await loadCurrentStock();
+                }}
+              }} catch (e) {{
+                statusEl.textContent = 'ошибка';
+                resultEl.textContent = String(e);
+              }}
+            }});
+
+            document.getElementById('a-history').addEventListener('click', async () => {{
+              const productId = Number(document.getElementById('a-product').value);
+              const locationId = Number(document.getElementById('a-location').value);
+              const response = await fetch(`/api/v1/admin/products/movements?product_id=${{productId}}&location_id=${{locationId}}&movement_type=adjustment&page=1&page_size=20`, {{ headers: apiHeaders() }});
+              const data = await readJson(response);
+              resultEl.textContent = JSON.stringify({{ status: response.status, data }}, null, 2);
+            }});
+
+            loadCurrentStock();
           }}
 
           function renderSpecification() {{
@@ -780,12 +884,18 @@ def _products_section_body(section: dict[str, str]) -> str:
             showSpec();
           }}
 
-          const renderers = {{ add: renderAddProduct, inventory: renderInventory, spec: renderSpecification }};
+          const renderers = {{ add: renderAddProduct, inventory: renderInventory, audit: renderInventoryAudit, spec: renderSpecification }};
           function activateScreen(screen) {{
             document.querySelectorAll('[data-products-screen]').forEach((b) => {{
               b.classList.toggle('primary', b.getAttribute('data-products-screen') === screen);
             }});
             renderers[screen]();
+            if (window.location.hash !== `#products-${{screen}}`) {{
+              window.history.replaceState(null, '', `#products-${{screen}}`);
+            }}
+            document.querySelectorAll('.menu-subitem').forEach((item) => {{
+              item.classList.toggle('active', item.getAttribute('href').endsWith(`#products-${{screen}}`));
+            }});
           }}
 
           document.querySelectorAll('[data-products-screen]').forEach((b) => {{
@@ -797,7 +907,9 @@ def _products_section_body(section: dict[str, str]) -> str:
             try {{
               await Promise.all([fetchProducts(), fetchLocations()]);
               statusEl.textContent = 'готово';
-              activateScreen('add');
+              const hashScreen = (window.location.hash || '').replace('#products-', '');
+              const initialScreen = renderers[hashScreen] ? hashScreen : 'add';
+              activateScreen(initialScreen);
             }} catch (e) {{
               statusEl.textContent = 'ошибка';
               bodyEl.textContent = `Ошибка загрузки: ${{e}}`;
