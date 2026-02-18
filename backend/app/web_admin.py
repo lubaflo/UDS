@@ -84,6 +84,13 @@ _BASE_HTML = """<!doctype html>
     .menu-item .left {{ display:flex; align-items:center; gap: 7px; }}
     .menu-item .icon {{ width: 18px; text-align:center; opacity: .95; }}
     .menu-item.active, .menu-item:hover {{ background: var(--sidebar-pill); }}
+    .menu-submenu {{ display:flex; flex-direction:column; gap:6px; margin:-2px 0 8px 28px; }}
+    .menu-subitem {{
+      display:block; text-decoration:none; color:#dbe6ff; font-size:12px;
+      padding:7px 10px; border-radius:10px; border:1px solid rgba(206, 220, 255, .24);
+      background: rgba(8, 24, 63, .36);
+    }}
+    .menu-subitem.active {{ background: rgba(108, 137, 219, .26); color:#fff; }}
 
     .content {{ padding: 10px 14px 16px; }}
 
@@ -270,7 +277,7 @@ _BASE_HTML = """<!doctype html>
       const now = new Date();
       document.getElementById('appt-date').value = now.toISOString().slice(0,10);
 
-      const optsRes = await fetch('/api/v1/app/appointments/booking-options', {{ headers: заголовки() }});
+      const optsRes = await fetch('/api/v1/app/appointments/booking-options', {{ headers: (window.заголовки ? window.заголовки() : {{ 'Content-Type': 'application/json' }}) }});
       const opts = await optsRes.json();
       (opts.masters || []).forEach((m) => {{
         const op = document.createElement('option');
@@ -291,7 +298,7 @@ _BASE_HTML = """<!doctype html>
         const employeeId = document.getElementById('appt-employee').value;
         const dayStart = Math.floor(new Date(`${{date}}T00:00:00Z`).getTime()/1000);
         const url = `/api/v1/app/appointments/slots?date_ts=${{dayStart}}${{employeeId ? `&employee_id=${{employeeId}}` : ''}}`;
-        const res = await fetch(url, {{ headers: заголовки() }});
+        const res = await fetch(url, {{ headers: (window.заголовки ? window.заголовки() : {{ 'Content-Type': 'application/json' }}) }});
         const data = await res.json();
         const slotSelect = document.getElementById('appt-slot');
         slotSelect.innerHTML = '<option value="">Выберите время</option>';
@@ -321,7 +328,7 @@ _BASE_HTML = """<!doctype html>
         try {{
           const res = await fetch('/api/v1/admin/appointments', {{
             method: 'POST',
-            headers: заголовки(),
+            headers: (window.заголовки ? window.заголовки() : {{ 'Content-Type': 'application/json' }}),
             body: JSON.stringify(payload),
           }});
           const data = await res.json();
@@ -382,7 +389,7 @@ _BASE_HTML = """<!doctype html>
         }}
 
         try {{
-          const init = {{ method, headers: заголовки() }};
+          const init = {{ method, headers: (window.заголовки ? window.заголовки() : {{ 'Content-Type': 'application/json' }}) }};
           if (method !== 'GET' && method !== 'HEAD') init.body = JSON.stringify(body || {{}});
           const res = await fetch(url, init);
           const text = await res.text();
@@ -481,17 +488,330 @@ def _menu(active: str) -> str:
     items: list[str] = []
     for section in SECTIONS:
         css = "active" if active == section["key"] else ""
+        submenu_html = ""
+        if section["key"] == "products" and active == "products":
+            submenu_html = """
+              <div class=\"menu-submenu\">
+                <a class=\"menu-subitem active\" href=\"#products-add\">Добавить товар</a>
+                <a class=\"menu-subitem\" href=\"#products-inventory\">Учет наличия</a>
+                <a class=\"menu-subitem\" href=\"#products-spec\">Создание спецификации</a>
+              </div>
+            """
         items.append(
             f"""
             <a class=\"menu-item {css}\" href=\"/admin/{section['key']}\" data-module=\"{section['module']}\">
               <span class=\"left\"><span class=\"icon\">{section['icon']}</span>{section['title']}</span>
             </a>
+            {submenu_html}
             """
         )
     return "\n".join(items)
 
 
+def _products_section_body(section: dict[str, str]) -> str:
+    return f"""
+      <section class="header">
+        <div>
+          <h1>{section['title']}</h1>
+          <div class="hint">Полный цикл: добавление товара → складской учет → спецификация услуги.</div>
+        </div>
+      </section>
+
+      <section class="panel" style="margin-bottom:10px">
+        <div class="panel-head"><span>Рабочее подменю</span><span class="hint">товары</span></div>
+        <div class="panel-body">
+          <div class="actions">
+            <button class="btn primary" data-products-screen="add" id="products-add">Добавить товар</button>
+            <button class="btn" data-products-screen="inventory" id="products-inventory">Учет наличия</button>
+            <button class="btn" data-products-screen="spec" id="products-spec">Создание спецификации</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="products-workspace">
+        <div class="panel-head"><span id="products-screen-title">Добавление товара</span><span class="hint" id="products-status">ожидание</span></div>
+        <div class="panel-body" id="products-screen-body">Загрузка...</div>
+      </section>
+
+      <script>
+        (function() {{
+          const tokenKey = 'админка_токен';
+          function fallbackHeaders() {{
+            const token = localStorage.getItem(tokenKey) || '';
+            return token ? {{ Authorization: `Bearer ${{token}}`, 'Content-Type': 'application/json' }} : {{ 'Content-Type': 'application/json' }};
+          }}
+          const apiHeaders = () => (window.заголовки ? window.заголовки() : fallbackHeaders());
+
+          const state = {{ products: [], services: [], locations: [] }};
+          const statusEl = document.getElementById('products-status');
+          const titleEl = document.getElementById('products-screen-title');
+          const bodyEl = document.getElementById('products-screen-body');
+
+          async function readJson(response) {{
+            const text = await response.text();
+            try {{ return JSON.parse(text); }} catch (_e) {{ return text; }}
+          }}
+
+          async function fetchProducts() {{
+            const response = await fetch('/api/v1/admin/products?page=1&page_size=200', {{ headers: apiHeaders() }});
+            const data = await readJson(response);
+            if (!response.ok) throw new Error(typeof data === 'string' ? data : JSON.stringify(data));
+            state.products = data.items || [];
+            state.services = state.products.filter((x) => x.item_type === 'service');
+          }}
+
+          async function fetchLocations() {{
+            const response = await fetch('/api/v1/admin/products/locations', {{ headers: apiHeaders() }});
+            const data = await readJson(response);
+            if (!response.ok) throw new Error(typeof data === 'string' ? data : JSON.stringify(data));
+            state.locations = Array.isArray(data) ? data : [];
+          }}
+
+          function optionRows(items, valueKey, labelKey) {{
+            return items.map((x) => `<option value="${{x[valueKey]}}">${{x[labelKey]}}</option>`).join('');
+          }}
+
+          function renderAddProduct() {{
+            titleEl.textContent = 'Добавление товара';
+            bodyEl.innerHTML = `
+              <div class="hint" style="margin-bottom:8px">Сначала категория, затем наименование и карточка для магазина.</div>
+              <div class="row"> 
+                <label>Категория<input id="p-category" value="Без категории" /></label>
+                <label>Наименование<input id="p-name" placeholder="Например, Шампунь увлажняющий" /></label>
+              </div>
+              <div class="row"> 
+                <label>Полное наименование<input id="p-full-name" /></label>
+                <label>Наименование в чеке<input id="p-receipt-name" /></label>
+              </div>
+              <div class="row"> 
+                <label>Тип
+                  <select id="p-item-type"><option value="product">Товар</option><option value="service">Услуга</option></select>
+                </label>
+                <label>Ед. измерения<input id="p-unit" value="Штуки" /></label>
+              </div>
+              <div class="row"> 
+                <label>Цена продажи, ₽<input id="p-price" type="number" min="0" value="0" /></label>
+                <label>Себестоимость, ₽<input id="p-cost" type="number" min="0" value="0" /></label>
+              </div>
+              <div class="row"> 
+                <label>Артикул<input id="p-sku" /></label>
+                <label>Штрихкод<input id="p-barcode" /></label>
+              </div>
+              <div class="row"> 
+                <label>Критичный остаток<input id="p-critical" type="number" min="0" value="0" /></label>
+                <label>Желаемый остаток<input id="p-desired" type="number" min="0" value="0" /></label>
+              </div>
+              <div class="row"> 
+                <label>Начальный остаток<input id="p-stock" type="number" min="0" value="0" /></label>
+                <label style="display:flex;align-items:center;gap:8px;"><input id="p-track" type="checkbox" checked style="width:auto"/>Вести учет наличия</label>
+              </div>
+              <label>Описание<textarea id="p-description" rows="4"></textarea></label>
+              <label>Комментарий для учета<textarea id="p-comment" rows="3"></textarea></label>
+              <div class="actions" style="margin-top:8px">
+                <button class="btn primary" id="p-create">Сохранить товар</button>
+              </div>
+              <pre id="p-result" style="margin-top:8px">Ожидание...</pre>
+            `;
+
+            document.getElementById('p-item-type').addEventListener('change', (e) => {{
+              const isProduct = e.target.value === 'product';
+              document.getElementById('p-track').checked = isProduct;
+              document.getElementById('p-track').disabled = !isProduct;
+            }});
+
+            document.getElementById('p-create').addEventListener('click', async () => {{
+              const resultEl = document.getElementById('p-result');
+              const itemType = document.getElementById('p-item-type').value;
+              const payload = {{
+                name: document.getElementById('p-name').value.trim(),
+                category: document.getElementById('p-category').value.trim() || 'Без категории',
+                full_name: document.getElementById('p-full-name').value.trim(),
+                receipt_name: document.getElementById('p-receipt-name').value.trim(),
+                description: document.getElementById('p-description').value.trim(),
+                item_type: itemType,
+                unit: document.getElementById('p-unit').value.trim() || 'Штуки',
+                price_rub: Number(document.getElementById('p-price').value || 0),
+                cost_price_rub: Number(document.getElementById('p-cost').value || 0),
+                sku: document.getElementById('p-sku').value.trim(),
+                barcode: document.getElementById('p-barcode').value.trim(),
+                critical_stock: Number(document.getElementById('p-critical').value || 0),
+                desired_stock: Number(document.getElementById('p-desired').value || 0),
+                stock: Number(document.getElementById('p-stock').value || 0),
+                track_inventory: itemType === 'product' && document.getElementById('p-track').checked,
+                comment: document.getElementById('p-comment').value.trim(),
+                images: [],
+              }};
+              if (!payload.name) {{
+                resultEl.textContent = 'Ошибка: заполните наименование.';
+                return;
+              }}
+              statusEl.textContent = 'сохранение';
+              try {{
+                const response = await fetch('/api/v1/admin/products', {{ method: 'POST', headers: apiHeaders(), body: JSON.stringify(payload) }});
+                const data = await readJson(response);
+                statusEl.textContent = response.ok ? 'сохранено' : 'ошибка';
+                resultEl.textContent = JSON.stringify({{ status: response.status, data }}, null, 2);
+                if (response.ok) await fetchProducts();
+              }} catch (e) {{
+                statusEl.textContent = 'ошибка';
+                resultEl.textContent = String(e);
+              }}
+            }});
+          }}
+
+          function renderInventory() {{
+            titleEl.textContent = 'Учет наличия товара';
+            const goods = state.products.filter((x) => x.item_type === 'product');
+            bodyEl.innerHTML = `
+              <div class="row">
+                <label>Товар<select id="i-product">${{optionRows(goods, 'id', 'name')}}</select></label>
+                <label>Склад<select id="i-location">${{optionRows(state.locations, 'id', 'name')}}</select></label>
+              </div>
+              <div class="row">
+                <label>Операция
+                  <select id="i-type"><option value="income">Приход</option><option value="expense">Списание</option><option value="adjustment">Корректировка</option></select>
+                </label>
+                <label>Количество<input id="i-qty" type="number" min="1" value="1" /></label>
+              </div>
+              <div class="row">
+                <label>Цена закупки, ₽<input id="i-cost" type="number" min="0" value="0" /></label>
+                <label>Контрагент<input id="i-counterparty" /></label>
+              </div>
+              <label>Комментарий<textarea id="i-comment" rows="3"></textarea></label>
+              <div class="actions" style="margin-top:8px">
+                <button class="btn primary" id="i-save">Провести операцию</button>
+                <button class="btn" id="i-refresh">Обновить движения</button>
+              </div>
+              <pre id="i-result" style="margin-top:8px">Ожидание...</pre>
+            `;
+
+            const resultEl = document.getElementById('i-result');
+            if (!goods.length || !state.locations.length) {{
+              resultEl.textContent = 'Нужны минимум 1 товар и 1 склад (локация).';
+              return;
+            }}
+
+            document.getElementById('i-save').addEventListener('click', async () => {{
+              statusEl.textContent = 'сохранение';
+              const productId = Number(document.getElementById('i-product').value);
+              const payload = {{
+                location_id: Number(document.getElementById('i-location').value),
+                movement_type: document.getElementById('i-type').value,
+                quantity: Number(document.getElementById('i-qty').value || 0),
+                unit_cost_rub: Number(document.getElementById('i-cost').value || 0),
+                counterparty: document.getElementById('i-counterparty').value.trim(),
+                comment: document.getElementById('i-comment').value.trim(),
+              }};
+              try {{
+                const response = await fetch(`/api/v1/admin/products/${{productId}}/movements`, {{ method: 'POST', headers: apiHeaders(), body: JSON.stringify(payload) }});
+                const data = await readJson(response);
+                statusEl.textContent = response.ok ? 'сохранено' : 'ошибка';
+                resultEl.textContent = JSON.stringify({{ status: response.status, data }}, null, 2);
+                if (response.ok) await fetchProducts();
+              }} catch (e) {{
+                statusEl.textContent = 'ошибка';
+                resultEl.textContent = String(e);
+              }}
+            }});
+
+            document.getElementById('i-refresh').addEventListener('click', async () => {{
+              const productId = Number(document.getElementById('i-product').value);
+              const response = await fetch(`/api/v1/admin/products/movements?product_id=${{productId}}&page=1&page_size=10`, {{ headers: apiHeaders() }});
+              const data = await readJson(response);
+              resultEl.textContent = JSON.stringify({{ status: response.status, data }}, null, 2);
+            }});
+          }}
+
+          function renderSpecification() {{
+            titleEl.textContent = 'Создание спецификации товара';
+            const goods = state.products.filter((x) => x.item_type === 'product');
+            bodyEl.innerHTML = `
+              <div class="hint" style="margin-bottom:8px">Подтягиваем услуги/товары из блока «Товар» и дополняем нормой списания.</div>
+              <div class="row">
+                <label>Услуга<select id="s-service">${{optionRows(state.services, 'id', 'name')}}</select></label>
+                <label>Расходник<select id="s-material">${{optionRows(goods, 'id', 'name')}}</select></label>
+              </div>
+              <div class="row">
+                <label>Количество на услугу<input id="s-qty" type="number" min="1" value="1" /></label>
+                <label>Ед. измерения<input id="s-unit" value="Штуки" /></label>
+              </div>
+              <label>Комментарий<textarea id="s-comment" rows="3"></textarea></label>
+              <div class="actions" style="margin-top:8px">
+                <button class="btn primary" id="s-save">Добавить в спецификацию</button>
+                <button class="btn" id="s-refresh">Показать спецификацию услуги</button>
+              </div>
+              <pre id="s-result" style="margin-top:8px">Ожидание...</pre>
+            `;
+
+            const resultEl = document.getElementById('s-result');
+            if (!state.services.length || !goods.length) {{
+              resultEl.textContent = 'Нужны минимум 1 услуга и 1 товар.';
+              return;
+            }}
+
+            async function showSpec() {{
+              const serviceId = Number(document.getElementById('s-service').value);
+              const response = await fetch(`/api/v1/admin/products/${{serviceId}}/specification`, {{ headers: apiHeaders() }});
+              const data = await readJson(response);
+              resultEl.textContent = JSON.stringify({{ status: response.status, data }}, null, 2);
+            }}
+
+            document.getElementById('s-save').addEventListener('click', async () => {{
+              statusEl.textContent = 'сохранение';
+              const serviceId = Number(document.getElementById('s-service').value);
+              const payload = {{
+                material_product_id: Number(document.getElementById('s-material').value),
+                quantity: Number(document.getElementById('s-qty').value || 0),
+                unit: document.getElementById('s-unit').value.trim() || 'Штуки',
+                comment: document.getElementById('s-comment').value.trim(),
+              }};
+              try {{
+                const response = await fetch(`/api/v1/admin/products/${{serviceId}}/specification`, {{ method: 'POST', headers: apiHeaders(), body: JSON.stringify(payload) }});
+                const data = await readJson(response);
+                statusEl.textContent = response.ok ? 'сохранено' : 'ошибка';
+                resultEl.textContent = JSON.stringify({{ status: response.status, data }}, null, 2);
+              }} catch (e) {{
+                statusEl.textContent = 'ошибка';
+                resultEl.textContent = String(e);
+              }}
+            }});
+
+            document.getElementById('s-refresh').addEventListener('click', showSpec);
+            showSpec();
+          }}
+
+          const renderers = {{ add: renderAddProduct, inventory: renderInventory, spec: renderSpecification }};
+          function activateScreen(screen) {{
+            document.querySelectorAll('[data-products-screen]').forEach((b) => {{
+              b.classList.toggle('primary', b.getAttribute('data-products-screen') === screen);
+            }});
+            renderers[screen]();
+          }}
+
+          document.querySelectorAll('[data-products-screen]').forEach((b) => {{
+            b.addEventListener('click', () => activateScreen(b.getAttribute('data-products-screen')));
+          }});
+
+          (async () => {{
+            statusEl.textContent = 'загрузка';
+            try {{
+              await Promise.all([fetchProducts(), fetchLocations()]);
+              statusEl.textContent = 'готово';
+              activateScreen('add');
+            }} catch (e) {{
+              statusEl.textContent = 'ошибка';
+              bodyEl.textContent = `Ошибка загрузки: ${{e}}`;
+            }}
+          }})();
+        }})();
+      </script>
+    """
+
+
 def _section_body(section: dict[str, str]) -> str:
+    if section["key"] == "products":
+        return _products_section_body(section)
+
     actions = SECTION_ACTIONS.get(section["key"], [
         {"label": "Открыть", "type": "quick", "value": section["endpoint"]},
         {"label": "Обновить", "type": "quick", "value": section["endpoint"]},
@@ -580,7 +900,7 @@ def _section_body(section: dict[str, str]) -> str:
                 return;
               }}
               try {{
-                const res = await fetch(action.value, {{ headers: заголовки() }});
+                const res = await fetch(action.value, {{ headers: (window.заголовки ? window.заголовки() : {{ 'Content-Type': 'application/json' }}) }});
                 const text = await res.text();
                 let parsed = text;
                 try {{ parsed = JSON.parse(text); }} catch (_e) {{}}
@@ -595,7 +915,7 @@ def _section_body(section: dict[str, str]) -> str:
             const statusEl = document.getElementById('section-status');
             statusEl.textContent = 'загрузка';
             try {{
-              const response = await fetch(section.endpoint, {{ headers: заголовки() }});
+              const response = await fetch(section.endpoint, {{ headers: (window.заголовки ? window.заголовки() : {{ 'Content-Type': 'application/json' }}) }});
               const text = await response.text();
               let data = text;
               try {{ data = JSON.parse(text); }} catch (_e) {{}}
