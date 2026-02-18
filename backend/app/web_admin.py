@@ -246,7 +246,7 @@ _BASE_HTML = """<!doctype html>
     const наборПоУмолчанию = {{services:true, products:true, messaging:true, marketing:true, analytics:true, certificates:true, referrals:true, security:true, core:true}};
 
     function нормализоватьТокен(value) {{
-      return (value || '').trim().replace(/^Bearer\s+/i, '');
+      return (value || '').trim().replace(/^Bearer\\s+/i, '');
     }}
     function взятьТокен() {{
       return нормализоватьТокен(localStorage.getItem(токенКлюч) || '');
@@ -615,7 +615,7 @@ def _products_section_body(section: dict[str, str]) -> str:
       <script>
         (function() {{
           const tokenKey = 'админка_токен';
-          const normalizeToken = (value) => (value || '').trim().replace(/^Bearer\s+/i, '');
+          const normalizeToken = (value) => (value || '').trim().replace(/^Bearer\\s+/i, '');
           function fallbackHeaders() {{
             const token = normalizeToken(localStorage.getItem(tokenKey) || '');
             return token ? {{ Authorization: `Bearer ${{token}}`, 'Content-Type': 'application/json' }} : {{ 'Content-Type': 'application/json' }};
