@@ -128,6 +128,27 @@ _BASE_HTML = """<!doctype html>
     .drawer-body {{ padding:12px; overflow:auto; }}
     textarea, input, select {{ width:100%; border:1px solid var(--line); border-radius:10px; padding:8px; font:inherit; }}
     .row {{ display:grid; gap:8px; grid-template-columns: 1fr 1fr; margin-bottom:8px; }}
+    .product-spec {{ max-width: 1040px; margin: 0 auto; }}
+    .spec-grid {{ display:grid; grid-template-columns: 220px 1fr; gap:10px 14px; align-items:center; }}
+    .spec-label {{ text-align:right; font-weight:600; line-height:1.15; }}
+    .spec-field {{ width:100%; }}
+    .spec-inline {{ display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px; }}
+    .spec-inline.two {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+    .spec-note {{ color:var(--muted); font-size:11px; margin-bottom:4px; }}
+    .spec-input-group {{ display:grid; grid-template-columns: 44px 1fr; }}
+    .spec-input-group .prefix {{ border:1px solid var(--line); border-right:none; border-radius:10px 0 0 10px; display:flex; align-items:center; justify-content:center; background:#f8faff; color:#5b6d8f; }}
+    .spec-input-group input {{ border-radius:0 10px 10px 0; }}
+    .spec-with-suffix {{ display:grid; grid-template-columns: 1fr 58px; }}
+    .spec-with-suffix .suffix {{ border:1px solid var(--line); border-left:none; border-radius:0 10px 10px 0; display:flex; align-items:center; justify-content:center; background:#f8faff; color:#2a3f69; }}
+    .spec-with-suffix input {{ border-radius:10px 0 0 10px; }}
+    .spec-save {{ margin-top:10px; border-top:1px dashed var(--line); padding-top:10px; }}
+
+    @media (max-width: 900px) {{
+      .spec-grid {{ grid-template-columns: 1fr; }}
+      .spec-label {{ text-align:left; }}
+      .spec-inline, .spec-inline.two {{ grid-template-columns: 1fr; }}
+    }}
+
     pre {{ margin:0; background:#f6f8fd; border:1px solid var(--line); border-radius:10px; padding:10px; font-size:12px; white-space:pre-wrap; }}
 
     .badge {{ border-radius: 999px; background: #f2f6ff; color:#2a3f69; border:1px solid #d6e2fd; font-size:11px; padding:2px 8px; }}
@@ -607,72 +628,172 @@ def _products_section_body(section: dict[str, str]) -> str:
           function renderAddProduct() {{
             titleEl.textContent = 'Спецификация товара';
             bodyEl.innerHTML = `
-              <div class="hint" style="margin-bottom:8px">Карточка товара для магазина: название, описание, цена, медиа и варианты.</div>
-              <div class="row">
-                <label>Название<input id="p-name" maxlength="100" placeholder="Например, Шампунь увлажняющий" /></label>
-                <label>Описание<textarea id="p-description" rows="4" maxlength="5000"></textarea></label>
+              <div class="product-spec">
+                <div class="hint" style="margin-bottom:8px">Форма карточки товара в стиле POS: обязательные поля, остатки и налоги.</div>
+                <div class="spec-grid">
+                  <div class="spec-label">Название</div>
+                  <div class="spec-field"><input id="p-name" maxlength="100" placeholder="Например, Шампунь увлажняющий" /></div>
+
+                  <div class="spec-label">Название в чеке</div>
+                  <div class="spec-field"><input id="p-receipt-name" maxlength="100" placeholder="Будет напечатано в чеке" /></div>
+
+                  <div class="spec-label">Артикул</div>
+                  <div class="spec-field"><input id="p-sku" /></div>
+
+                  <div class="spec-label">Штрихкод</div>
+                  <div class="spec-field"><input id="p-barcode" placeholder="EAN/UPC" /></div>
+
+                  <div class="spec-label">Категория</div>
+                  <div class="spec-field">
+                    <select id="p-category">
+                      <option value="Основные товары">Основные товары</option>
+                      <option value="Расходные материалы">Расходные материалы</option>
+                      <option value="Сопутствующие товары">Сопутствующие товары</option>
+                    </select>
+                  </div>
+
+                  <div class="spec-label">Единицы<br/>измерения</div>
+                  <div class="spec-field spec-inline">
+                    <div>
+                      <div class="spec-note">Для продажи</div>
+                      <select id="p-unit-sale">
+                        <option value="Штука">Штука</option>
+                        <option value="Упаковка">Упаковка</option>
+                        <option value="мл">мл</option>
+                        <option value="г">г</option>
+                      </select>
+                    </div>
+                    <div>
+                      <div class="spec-note">Равно</div>
+                      <div class="spec-input-group">
+                        <span class="prefix">=</span>
+                        <input id="p-unit-ratio" type="number" min="1" step="1" value="1" />
+                      </div>
+                    </div>
+                    <div>
+                      <div class="spec-note">Для списания</div>
+                      <select id="p-unit-stock">
+                        <option value="Штука">Штука</option>
+                        <option value="Упаковка">Упаковка</option>
+                        <option value="мл">мл</option>
+                        <option value="г">г</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="spec-label">Массы</div>
+                  <div class="spec-field spec-inline two">
+                    <div>
+                      <div class="spec-note">Масса нетто</div>
+                      <div class="spec-with-suffix">
+                        <input id="p-netto" type="number" min="0" step="0.01" value="0" />
+                        <span class="suffix">гр.</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div class="spec-note">Масса брутто</div>
+                      <div class="spec-with-suffix">
+                        <input id="p-brutto" type="number" min="0" step="0.01" value="0" />
+                        <span class="suffix">гр.</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="spec-label">Цена продажи</div>
+                  <div class="spec-field spec-with-suffix">
+                    <input id="p-price" type="number" min="0" step="0.01" value="0" />
+                    <span class="suffix">₽</span>
+                  </div>
+
+                  <div class="spec-label">Себестоимость</div>
+                  <div class="spec-field spec-with-suffix">
+                    <input id="p-cost" type="number" min="0" step="0.01" value="0" />
+                    <span class="suffix">₽</span>
+                  </div>
+
+                  <div class="spec-label">Система<br/>налогообложения</div>
+                  <div class="spec-field spec-inline two">
+                    <select id="p-tax-system">
+                      <option value="По умолчанию">По умолчанию</option>
+                      <option value="ОСН">ОСН</option>
+                      <option value="УСН доход">УСН доход</option>
+                      <option value="УСН доход-расход">УСН доход-расход</option>
+                    </select>
+                    <div>
+                      <div class="spec-note">НДС</div>
+                      <select id="p-vat">
+                        <option value="По умолчанию">По умолчанию</option>
+                        <option value="Без НДС">Без НДС</option>
+                        <option value="20%">20%</option>
+                        <option value="10%">10%</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="spec-label">Критичный<br/>остаток</div>
+                  <div class="spec-field spec-with-suffix">
+                    <input id="p-critical" type="number" min="0" step="0.01" value="0" />
+                    <span class="suffix">шт.</span>
+                  </div>
+
+                  <div class="spec-label">Желаемый<br/>остаток</div>
+                  <div class="spec-field spec-with-suffix">
+                    <input id="p-desired" type="number" min="0" step="0.01" value="0" />
+                    <span class="suffix">шт.</span>
+                  </div>
+
+                  <div class="spec-label">Комментарий</div>
+                  <div class="spec-field"><textarea id="p-comment" rows="3" placeholder="Комментарий для сотрудников"></textarea></div>
+                </div>
+                <div class="spec-save">
+                  <div class="actions">
+                    <button class="btn primary" id="p-create">Сохранить</button>
+                  </div>
+                </div>
               </div>
-              <div class="row">
-                <label>Разместить в категории<input id="p-category" value="Без категории" /></label>
-                <label>Единица измерения<input id="p-unit" value="Штуки" /></label>
-              </div>
-              <div class="row">
-                <label style="display:flex;align-items:center;gap:8px;"><input id="p-promo" type="checkbox" style="width:auto"/>Акционный товар</label>
-                <label>Цена, ₽<input id="p-price" type="number" min="0" value="0" /></label>
-              </div>
-              <div class="row">
-                <label>Артикул<input id="p-sku" /></label>
-                <label>Ссылки на фото (по одной в строке)<textarea id="p-images" rows="4" placeholder="https://.../photo1.jpg"></textarea></label>
-              </div>
-              <div class="row">
-                <label>Вариант товара<input id="p-variant" placeholder="Например, 250 мл" /></label>
-                <label>Комментарий<textarea id="p-comment" rows="2" placeholder="Примечание для сотрудников"></textarea></label>
-              </div>
-              <div class="actions" style="margin-top:8px">
-                <button class="btn" id="p-add-variant">Добавить вариант</button>
-                <button class="btn primary" id="p-create">Сохранить</button>
-              </div>
-              <pre id="p-variant-result" style="margin-top:8px">Варианты: []</pre>
               <pre id="p-result" style="margin-top:8px">Ожидание...</pre>
             `;
 
-            const variants = [];
-            const variantsEl = document.getElementById('p-variant-result');
-            document.getElementById('p-add-variant').addEventListener('click', () => {{
-              const name = document.getElementById('p-variant').value.trim();
-              if (!name) return;
-              variants.push(name);
-              document.getElementById('p-variant').value = '';
-              variantsEl.textContent = `Варианты: ${{JSON.stringify(variants)}}`;
-            }});
-
             document.getElementById('p-create').addEventListener('click', async () => {{
               const resultEl = document.getElementById('p-result');
-              const images = document
-                .getElementById('p-images')
-                .value
-                .split('\n')
-                .map((x) => x.trim())
-                .filter(Boolean);
+              const saleUnit = document.getElementById('p-unit-sale').value;
+              const stockUnit = document.getElementById('p-unit-stock').value;
+              const ratio = Number(document.getElementById('p-unit-ratio').value || 1);
+              const netto = Number(document.getElementById('p-netto').value || 0);
+              const brutto = Number(document.getElementById('p-brutto').value || 0);
+              const taxSystem = document.getElementById('p-tax-system').value;
+              const vat = document.getElementById('p-vat').value;
+              const manualComment = document.getElementById('p-comment').value.trim();
               const payload = {{
                 name: document.getElementById('p-name').value.trim(),
-                category: document.getElementById('p-category').value.trim() || 'Без категории',
+                category: document.getElementById('p-category').value,
                 full_name: document.getElementById('p-name').value.trim(),
-                receipt_name: document.getElementById('p-name').value.trim(),
-                description: document.getElementById('p-description').value.trim(),
+                receipt_name: document.getElementById('p-receipt-name').value.trim() || document.getElementById('p-name').value.trim(),
+                description: '',
                 item_type: 'product',
-                unit: document.getElementById('p-unit').value.trim() || 'Штуки',
-                is_promo: document.getElementById('p-promo').checked,
+                unit: saleUnit,
+                unit_for_writeoff: stockUnit,
+                unit_ratio: ratio,
+                is_promo: false,
                 price_rub: Number(document.getElementById('p-price').value || 0),
-                cost_price_rub: 0,
+                cost_price_rub: Number(document.getElementById('p-cost').value || 0),
                 sku: document.getElementById('p-sku').value.trim(),
-                barcode: '',
-                critical_stock: 0,
-                desired_stock: 0,
+                barcode: document.getElementById('p-barcode').value.trim(),
+                critical_stock: Number(document.getElementById('p-critical').value || 0),
+                desired_stock: Number(document.getElementById('p-desired').value || 0),
                 stock: 0,
                 track_inventory: true,
-                comment: [document.getElementById('p-comment').value.trim(), variants.length ? `Варианты: ${{variants.join(', ')}}` : ''].filter(Boolean).join(' | '),
-                images,
+                comment: [
+                  manualComment,
+                  `Ед. продажи: ${{saleUnit}}`,
+                  `Ед. списания: ${{stockUnit}}`,
+                  `Соотношение: 1=${{ratio}}`,
+                  `Масса нетто: ${{netto}} гр.`,
+                  `Масса брутто: ${{brutto}} гр.`,
+                  `СНО: ${{taxSystem}}`,
+                  `НДС: ${{vat}}`,
+                ].filter(Boolean).join(' | '),
+                images: [],
               }};
               if (!payload.name) {{
                 resultEl.textContent = 'Ошибка: заполните название товара.';
