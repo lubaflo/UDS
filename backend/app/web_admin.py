@@ -128,9 +128,9 @@ _BASE_HTML = """<!doctype html>
     .drawer-body {{ padding:12px; overflow:auto; }}
     textarea, input, select {{ width:100%; border:1px solid var(--line); border-radius:10px; padding:8px; font:inherit; }}
     .row {{ display:grid; gap:8px; grid-template-columns: 1fr 1fr; margin-bottom:8px; }}
-    .product-spec {{ max-width: 1120px; margin: 0 auto; }}
-    .product-spec-card {{ background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 18px 16px; }}
-    .spec-grid {{ display:grid; grid-template-columns: 220px 1fr; gap:10px 14px; align-items:center; }}
+    .product-spec {{ max-width: 1140px; margin: 0 auto; padding: 6px 0 2px; }}
+    .product-spec-card {{ background:#fff; border:1px solid #d8dfec; border-radius:14px; padding:14px 18px 0; }}
+    .spec-grid {{ display:grid; grid-template-columns: 220px 1fr; gap:10px 14px; align-items:center; padding-bottom:12px; }}
     .spec-label {{ text-align:right; font-weight:500; font-size:18px; line-height:1.15; }}
     .spec-label-with-icon {{ display:flex; align-items:center; justify-content:flex-end; gap:6px; }}
     .spec-label-icon {{ width:16px; height:16px; border-radius:50%; border:1px solid var(--line); color:#7284a7; font-size:11px; line-height:1; display:inline-flex; align-items:center; justify-content:center; background:#f8fbff; }}
@@ -146,8 +146,13 @@ _BASE_HTML = """<!doctype html>
     .spec-with-suffix input {{ border-radius:10px 0 0 10px; }}
     .spec-barcode-row {{ display:grid; grid-template-columns: 1fr 52px; }}
     .spec-icon-btn {{ border:1px solid var(--line); border-left:none; border-radius:0 10px 10px 0; background:#fff; color:#2a3f69; cursor:pointer; font-size:22px; line-height:1; }}
-    .spec-save {{ margin-top:16px; border-top:1px dashed var(--line); padding-top:14px; }}
-    .spec-save .btn.primary {{ min-width:130px; }}
+    .spec-field-with-help {{ display:grid; grid-template-columns: 1fr 24px; gap:8px; align-items:center; }}
+    .spec-help-icon {{ width:18px; height:18px; border-radius:50%; border:1px solid #ccd8ef; color:#7d8eaf; font-size:11px; line-height:1; display:inline-flex; align-items:center; justify-content:center; background:#f8fbff; cursor:default; font-weight:700; }}
+    .spec-tax-row {{ display:grid; grid-template-columns: minmax(0, 1fr) 90px minmax(0, 1fr); gap:10px; align-items:center; }}
+    .spec-tax-title {{ color:#2a3f69; font-size:16px; text-align:center; }}
+    .spec-form-error {{ margin-top:10px; border:1px solid #f3b6bf; background:#fff1f4; color:#9c2f42; padding:10px; border-radius:10px; display:none; }}
+    .spec-save {{ margin-top:0; border-top:1px solid #e4e9f3; padding:14px 0 14px; }}
+    .spec-save .btn.primary {{ min-width:130px; background:#ffd23d; border-color:#efbf1f; color:#594200; }}
     .spec-grid textarea {{ min-height:56px; resize:vertical; }}
 
     @media (max-width: 900px) {{
@@ -155,6 +160,8 @@ _BASE_HTML = """<!doctype html>
       .product-spec-card {{ padding:12px; }}
       .spec-label {{ text-align:left; font-size:16px; }}
       .spec-inline, .spec-inline.two {{ grid-template-columns: 1fr; }}
+      .spec-tax-row {{ grid-template-columns: 1fr; }}
+      .spec-tax-title {{ text-align:left; }}
     }}
 
     pre {{ margin:0; background:#f6f8fd; border:1px solid var(--line); border-radius:10px; padding:10px; font-size:12px; white-space:pre-wrap; }}
@@ -643,7 +650,7 @@ def _products_section_body(section: dict[str, str]) -> str:
                     <div class="spec-field"><input id="p-name" maxlength="100" /></div>
 
                     <div class="spec-label">Название в чеке</div>
-                    <div class="spec-field"><input id="p-receipt-name" maxlength="100" /></div>
+                    <div class="spec-field spec-field-with-help"><input id="p-receipt-name" maxlength="100" /><span class="spec-help-icon" title="Название, которое печатается в чеке">i</span></div>
 
                     <div class="spec-label">Артикул</div>
                     <div class="spec-field"><input id="p-sku" /></div>
@@ -712,45 +719,49 @@ def _products_section_body(section: dict[str, str]) -> str:
 
                     <div class="spec-label">Цена продажи</div>
                     <div class="spec-field spec-with-suffix">
-                      <input id="p-price" type="number" min="0" step="0.01" value="0" />
+                      <input id="p-price" type="number" min="0" step="1" value="0" />
                       <span class="suffix">₽</span>
                     </div>
 
                     <div class="spec-label"><span class="spec-label-with-icon">Себестоимость <span class="spec-label-icon" title="Нужна для расчета маржинальности">i</span></span></div>
                     <div class="spec-field spec-with-suffix">
-                      <input id="p-cost" type="number" min="0" step="0.01" value="0" />
+                      <input id="p-cost" type="number" min="0" step="1" value="0" />
                       <span class="suffix">₽</span>
                     </div>
 
                     <div class="spec-label">Система налогообложения</div>
-                    <div class="spec-field spec-inline two">
+                    <div class="spec-field spec-tax-row">
                     <select id="p-tax-system">
                       <option value="По умолчанию">По умолчанию</option>
                       <option value="ОСН">ОСН</option>
                       <option value="УСН доход">УСН доход</option>
                       <option value="УСН доход-расход">УСН доход-расход</option>
                     </select>
-                    <div>
-                      <div class="spec-note">НДС</div>
-                      <select id="p-vat">
-                        <option value="По умолчанию">По умолчанию</option>
-                        <option value="Без НДС">Без НДС</option>
-                        <option value="20%">20%</option>
-                        <option value="10%">10%</option>
-                      </select>
-                    </div>
+                    <div class="spec-tax-title">НДС</div>
+                    <select id="p-vat">
+                      <option value="По умолчанию">По умолчанию</option>
+                      <option value="Без НДС">Без НДС</option>
+                      <option value="20%">20%</option>
+                      <option value="10%">10%</option>
+                    </select>
                   </div>
 
                     <div class="spec-label"><span class="spec-label-with-icon">Критичный остаток <span class="spec-label-icon" title="При достижении этого уровня товар помечается как дефицитный">i</span></span></div>
-                    <div class="spec-field spec-with-suffix">
-                    <input id="p-critical" type="number" min="0" step="0.01" value="0" />
-                    <span class="suffix">шт.</span>
+                    <div class="spec-field spec-field-with-help">
+                    <div class="spec-with-suffix">
+                      <input id="p-critical" type="number" min="0" step="1" value="0" />
+                      <span class="suffix">шт.</span>
+                    </div>
+                    <span class="spec-help-icon" title="Минимальный остаток, при котором товар считается дефицитным">i</span>
                   </div>
 
                     <div class="spec-label"><span class="spec-label-with-icon">Желаемый остаток <span class="spec-label-icon" title="Целевой остаток для автоматических подсказок закупки">i</span></span></div>
-                    <div class="spec-field spec-with-suffix">
-                    <input id="p-desired" type="number" min="0" step="0.01" value="0" />
-                    <span class="suffix">шт.</span>
+                    <div class="spec-field spec-field-with-help">
+                    <div class="spec-with-suffix">
+                      <input id="p-desired" type="number" min="0" step="1" value="0" />
+                      <span class="suffix">шт.</span>
+                    </div>
+                    <span class="spec-help-icon" title="Целевой остаток для подсказок закупки">i</span>
                   </div>
 
                     <div class="spec-label">Комментарий</div>
@@ -763,6 +774,7 @@ def _products_section_body(section: dict[str, str]) -> str:
                   </div>
                 </div>
               </div>
+              <div id="p-error" class="spec-form-error"></div>
               <pre id="p-result" style="margin-top:8px; display:none">Ожидание...</pre>
             `;
 
@@ -782,33 +794,68 @@ def _products_section_body(section: dict[str, str]) -> str:
               }}
             }});
 
-            document.getElementById('p-create').addEventListener('click', async () => {{
+            const errorEl = document.getElementById('p-error');
+            const saveButtonEl = document.getElementById('p-create');
+
+            function toInt(value, fallback = 0) {{
+              const normalized = Number(value);
+              if (!Number.isFinite(normalized)) return fallback;
+              return Math.max(0, Math.round(normalized));
+            }}
+
+            function vatPercent(value) {{
+              if (value === 'Без НДС') return 0;
+              if (value === '10%') return 10;
+              return 20;
+            }}
+
+            function showError(message) {{
+              errorEl.style.display = message ? 'block' : 'none';
+              errorEl.textContent = message || '';
+            }}
+
+            async function createProduct() {{
               const resultEl = document.getElementById('p-result');
               const saleUnit = document.getElementById('p-unit-sale').value;
               const stockUnit = document.getElementById('p-unit-stock').value;
-              const ratio = Number(document.getElementById('p-unit-ratio').value || 1);
-              const netto = Number(document.getElementById('p-netto').value || 0);
-              const brutto = Number(document.getElementById('p-brutto').value || 0);
+              const ratio = Math.max(1, toInt(document.getElementById('p-unit-ratio').value, 1));
+              const netto = toInt(document.getElementById('p-netto').value);
+              const brutto = toInt(document.getElementById('p-brutto').value);
               const taxSystem = document.getElementById('p-tax-system').value;
               const vat = document.getElementById('p-vat').value;
+              const nameValue = document.getElementById('p-name').value.trim();
+              const criticalStock = toInt(document.getElementById('p-critical').value);
+              const desiredStock = toInt(document.getElementById('p-desired').value);
               const manualComment = document.getElementById('p-comment').value.trim();
+
+              showError('');
+              if (!nameValue) {{
+                showError('Заполните поле «Название».');
+                return;
+              }}
+              if (desiredStock < criticalStock) {{
+                showError('Желаемый остаток не может быть меньше критичного остатка.');
+                return;
+              }}
+
               const payload = {{
-                name: document.getElementById('p-name').value.trim(),
+                name: nameValue,
                 category: document.getElementById('p-category').value,
-                full_name: document.getElementById('p-name').value.trim(),
-                receipt_name: document.getElementById('p-receipt-name').value.trim() || document.getElementById('p-name').value.trim(),
+                full_name: nameValue,
+                receipt_name: document.getElementById('p-receipt-name').value.trim() || nameValue,
                 description: '',
                 item_type: 'product',
                 unit: saleUnit,
                 unit_for_writeoff: stockUnit,
                 unit_ratio: ratio,
                 is_promo: false,
-                price_rub: Number(document.getElementById('p-price').value || 0),
-                cost_price_rub: Number(document.getElementById('p-cost').value || 0),
+                price_rub: toInt(document.getElementById('p-price').value),
+                cost_price_rub: toInt(document.getElementById('p-cost').value),
                 sku: document.getElementById('p-sku').value.trim(),
                 barcode: document.getElementById('p-barcode').value.trim(),
-                critical_stock: Number(document.getElementById('p-critical').value || 0),
-                desired_stock: Number(document.getElementById('p-desired').value || 0),
+                tax_rate_percent: vatPercent(vat),
+                critical_stock: criticalStock,
+                desired_stock: desiredStock,
                 stock: 0,
                 track_inventory: true,
                 comment: [
@@ -823,23 +870,35 @@ def _products_section_body(section: dict[str, str]) -> str:
                 ].filter(Boolean).join(' | '),
                 images: [],
               }};
-              if (!payload.name) {{
-                resultEl.style.display = 'block';
-                resultEl.textContent = 'Ошибка: заполните название товара.';
-                return;
-              }}
+
               statusEl.textContent = 'сохранение';
+              saveButtonEl.disabled = true;
+              saveButtonEl.textContent = 'Сохранение...';
               try {{
                 const response = await fetch('/api/v1/admin/products', {{ method: 'POST', headers: apiHeaders(), body: JSON.stringify(payload) }});
                 const data = await readJson(response);
                 statusEl.textContent = response.ok ? 'сохранено' : 'ошибка';
                 resultEl.style.display = response.ok ? 'none' : 'block';
                 resultEl.textContent = JSON.stringify({{ status: response.status, data }}, null, 2);
-                if (response.ok) await fetchProducts();
+                if (response.ok) {{
+                  await fetchProducts();
+                  document.getElementById('p-comment').value = '';
+                }}
               }} catch (e) {{
                 statusEl.textContent = 'ошибка';
                 resultEl.style.display = 'block';
                 resultEl.textContent = String(e);
+              }} finally {{
+                saveButtonEl.disabled = false;
+                saveButtonEl.textContent = 'Сохранить';
+              }}
+            }}
+
+            saveButtonEl.addEventListener('click', createProduct);
+            bodyEl.addEventListener('keydown', (event) => {{
+              if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {{
+                event.preventDefault();
+                createProduct();
               }}
             }});
           }}
@@ -1266,16 +1325,21 @@ def _products_section_body(section: dict[str, str]) -> str:
           }});
 
           (async () => {{
+            const hashScreen = (window.location.hash || '').replace('#products-', '');
+            const initialScreen = renderers[hashScreen] ? hashScreen : 'add';
+            activateScreen(initialScreen);
             statusEl.textContent = 'загрузка';
             try {{
               await Promise.all([fetchProducts(), fetchLocations()]);
               statusEl.textContent = 'готово';
-              const hashScreen = (window.location.hash || '').replace('#products-', '');
-              const initialScreen = renderers[hashScreen] ? hashScreen : 'add';
-              activateScreen(initialScreen);
+              if (initialScreen !== 'add') {{
+                activateScreen(initialScreen);
+              }}
             }} catch (e) {{
-              statusEl.textContent = 'ошибка';
-              bodyEl.textContent = `Ошибка загрузки: ${{e}}`;
+              statusEl.textContent = 'частично доступно';
+              if (initialScreen !== 'add') {{
+                bodyEl.textContent = `Ошибка загрузки: ${{e}}`;
+              }}
             }}
           }})();
         }})();
