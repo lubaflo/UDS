@@ -263,6 +263,7 @@ _BASE_HTML = """<!doctype html>
     document.getElementById('save-token').addEventListener('click', () => {{
       const value = document.getElementById('token-input').value.trim();
       сохранитьТокен(value);
+      window.dispatchEvent(new CustomEvent('admin-token-updated', {{ detail: {{ token: value }} }}));
       alert('Токен сохранен');
     }});
 
@@ -619,6 +620,7 @@ def _products_section_body(section: dict[str, str]) -> str:
           const titleEl = document.getElementById('products-screen-title');
           const bodyEl = document.getElementById('products-screen-body');
           let currentMode = 'goods';
+          let currentScreen = 'add';
 
           async function readJson(response) {{
             const text = await response.text();
@@ -1304,6 +1306,7 @@ def _products_section_body(section: dict[str, str]) -> str:
           }}
 
           function activateScreen(screen) {{
+            currentScreen = screen;
             setMode(screenModes[screen] || 'goods');
             document.querySelectorAll('[data-products-screen]').forEach((b) => {{
               b.classList.toggle('primary', b.getAttribute('data-products-screen') === screen);
@@ -1315,6 +1318,28 @@ def _products_section_body(section: dict[str, str]) -> str:
             document.querySelectorAll('.menu-subitem').forEach((item) => {{
               item.classList.toggle('active', item.getAttribute('href').endsWith(`#products-${{screen}}`));
             }});
+          }}
+
+          async function reloadWorkspace(screen = currentScreen) {{
+            statusEl.textContent = 'загрузка';
+            try {{
+              await Promise.all([fetchProducts(), fetchLocations()]);
+              statusEl.textContent = 'готово';
+              activateScreen(screen);
+            }} catch (e) {{
+              const message = String(e);
+              const missingBearer = message.includes('Missing Bearer token');
+              statusEl.textContent = missingBearer ? 'нужен токен' : 'ошибка';
+              bodyEl.innerHTML = missingBearer
+                ? `<div class="hint">Для загрузки раздела нужен токен доступа. Вставьте JWT в поле «Токен доступа (Bearer)» сверху и нажмите «Сохранить токен».</div>
+                   <div class="actions" style="margin-top:10px"><button class="btn primary" id="products-retry-load">Повторить загрузку</button></div>`
+                : `Ошибка загрузки: ${{message}}`;
+
+              const retryBtn = document.getElementById('products-retry-load');
+              if (retryBtn) {{
+                retryBtn.addEventListener('click', () => reloadWorkspace(screen));
+              }}
+            }}
           }}
 
           document.querySelectorAll('[data-products-screen]').forEach((b) => {{
@@ -1330,18 +1355,14 @@ def _products_section_body(section: dict[str, str]) -> str:
             }});
           }});
 
+          window.addEventListener('admin-token-updated', async () => {{
+            await reloadWorkspace(currentScreen);
+          }});
+
           (async () => {{
-            statusEl.textContent = 'загрузка';
-            try {{
-              await Promise.all([fetchProducts(), fetchLocations()]);
-              statusEl.textContent = 'готово';
-              const hashScreen = (window.location.hash || '').replace('#products-', '');
-              const initialScreen = renderers[hashScreen] ? hashScreen : 'add';
-              activateScreen(initialScreen);
-            }} catch (e) {{
-              statusEl.textContent = 'ошибка';
-              bodyEl.textContent = `Ошибка загрузки: ${{e}}`;
-            }}
+            const hashScreen = (window.location.hash || '').replace('#products-', '');
+            const initialScreen = renderers[hashScreen] ? hashScreen : 'add';
+            await reloadWorkspace(initialScreen);
           }})();
         }})();
       </script>
