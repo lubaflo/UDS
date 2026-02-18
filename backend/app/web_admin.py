@@ -13,7 +13,7 @@ SECTIONS: list[dict[str, str]] = [
     {"key": "appointments", "title": "Записи", "endpoint": "/api/v1/admin/appointments", "icon": "🗓", "module": "services"},
     {"key": "operations", "title": "Операции", "endpoint": "/api/v1/admin/operations", "icon": "💳", "module": "core"},
     {"key": "clients", "title": "Клиенты", "endpoint": "/api/v1/admin/clients", "icon": "👥", "module": "core"},
-    {"key": "products", "title": "Товары и услуги", "endpoint": "/api/v1/admin/products", "icon": "🧾", "module": "products"},
+    {"key": "products", "title": "Товары", "endpoint": "/api/v1/admin/products", "icon": "🧾", "module": "products"},
     {"key": "employees", "title": "Сотрудники", "endpoint": "/api/v1/admin/employees", "icon": "🧑‍💼", "module": "core"},
     {"key": "messages", "title": "Сообщения и диалоги", "endpoint": "/api/v1/admin/dialogues", "icon": "💬", "module": "messaging"},
     {"key": "communications", "title": "Коммуникации и рассылки", "endpoint": "/api/v1/admin/communications", "icon": "📨", "module": "marketing"},
@@ -511,7 +511,11 @@ def _menu(active: str) -> str:
                 <a class=\"menu-subitem\" href=\"/admin/products#products-add\">Спецификация товара</a>
                 <a class=\"menu-subitem\" href=\"/admin/products#products-inventory\">Учет наличия</a>
                 <a class=\"menu-subitem\" href=\"/admin/products#products-audit\">Инвентаризация</a>
-                <a class=\"menu-subitem\" href=\"/admin/products#products-spec\">Создание спецификации</a>
+                <a class=\"menu-subitem\" href=\"/admin/products#products-spec\">Создание товара</a>
+                <a class=\"menu-subitem\" href=\"/admin/products#products-service-create\">Создание услуги</a>
+                <a class=\"menu-subitem\" href=\"/admin/products#products-service-tech-card\">Технологическая карточка услуги</a>
+                <a class=\"menu-subitem\" href=\"/admin/products#products-service-inventory\">Инвентаризация товаров для оказания услуги</a>
+                <a class=\"menu-subitem\" href=\"/admin/products#products-service-materials\">Учет наличия материалов для оказания услуги</a>
               </div>
             """.format(submenu_css=submenu_css)
         toggle_attr = f' data-menu-toggle="{section["key"]}"' if section["key"] == "products" else ""
@@ -531,18 +535,26 @@ def _products_section_body(section: dict[str, str]) -> str:
       <section class="header">
         <div>
           <h1>{section['title']}</h1>
-          <div class="hint">Полный цикл: спецификация товара → учет наличия → инвентаризация → спецификация услуги.</div>
+          <div class="hint">Полный цикл: создание товара → учет наличия → инвентаризация → технологическая карточка услуги.</div>
         </div>
       </section>
 
       <section class="panel" style="margin-bottom:10px">
-        <div class="panel-head"><span>Рабочее подменю</span><span class="hint">товары</span></div>
+        <div class="panel-head"><span>Рабочее подменю</span><span class="hint" id="products-mode-hint">товары</span></div>
         <div class="panel-body">
+          <div class="actions" style="margin-bottom:8px">
+            <button class="btn primary" data-products-mode="goods">Товары</button>
+            <button class="btn" data-products-mode="services">Услуги</button>
+          </div>
           <div class="actions">
-            <button class="btn primary" data-products-screen="add" id="products-add">Спецификация товара</button>
+            <button class="btn primary" data-products-screen="add" data-products-group="goods" id="products-add">Спецификация товара</button>
             <button class="btn" data-products-screen="inventory" id="products-inventory">Учет наличия</button>
             <button class="btn" data-products-screen="audit" id="products-audit">Инвентаризация</button>
-            <button class="btn" data-products-screen="spec" id="products-spec">Создание спецификации</button>
+            <button class="btn" data-products-screen="spec" id="products-spec">Создание товара</button>
+            <button class="btn" data-products-screen="service-create" data-products-group="services" id="products-service-create" style="display:none">Создание услуги</button>
+            <button class="btn" data-products-screen="service-tech-card" data-products-group="services" id="products-service-tech-card" style="display:none">Технологическая карточка услуги</button>
+            <button class="btn" data-products-screen="service-inventory" data-products-group="services" id="products-service-inventory" style="display:none">Инвентаризация товаров для оказания услуги</button>
+            <button class="btn" data-products-screen="service-materials" data-products-group="services" id="products-service-materials" style="display:none">Учет наличия материалов для оказания услуги</button>
           </div>
         </div>
       </section>
@@ -563,8 +575,10 @@ def _products_section_body(section: dict[str, str]) -> str:
 
           const state = {{ products: [], services: [], locations: [] }};
           const statusEl = document.getElementById('products-status');
+          const modeHintEl = document.getElementById('products-mode-hint');
           const titleEl = document.getElementById('products-screen-title');
           const bodyEl = document.getElementById('products-screen-body');
+          let currentMode = 'goods';
 
           async function readJson(response) {{
             const text = await response.text();
@@ -827,7 +841,135 @@ def _products_section_body(section: dict[str, str]) -> str:
           }}
 
           function renderSpecification() {{
-            titleEl.textContent = 'Создание спецификации товара';
+            titleEl.textContent = 'Создание товара';
+            const goods = state.products.filter((x) => x.item_type === 'product');
+            bodyEl.innerHTML = `
+              <div class="hint" style="margin-bottom:8px">Быстрое создание товарной позиции с базовыми реквизитами.</div>
+              <div class="row">
+                <label>Название товара<input id="spec-name" maxlength="100" placeholder="Например, Маска для волос" /></label>
+                <label>Категория<input id="spec-category" value="Без категории" /></label>
+              </div>
+              <div class="row">
+                <label>Ед. измерения<input id="spec-unit" value="Штуки" /></label>
+                <label>Цена, ₽<input id="spec-price" type="number" min="0" value="0" /></label>
+              </div>
+              <label>Комментарий<textarea id="spec-comment" rows="3"></textarea></label>
+              <div class="actions" style="margin-top:8px">
+                <button class="btn primary" id="spec-save">Создать товар</button>
+                <button class="btn" id="spec-list">Показать товары</button>
+              </div>
+              <pre id="spec-result" style="margin-top:8px">Ожидание...</pre>
+            `;
+
+            const resultEl = document.getElementById('spec-result');
+            document.getElementById('spec-save').addEventListener('click', async () => {{
+              const payload = {{
+                name: document.getElementById('spec-name').value.trim(),
+                category: document.getElementById('spec-category').value.trim() || 'Без категории',
+                full_name: document.getElementById('spec-name').value.trim(),
+                receipt_name: document.getElementById('spec-name').value.trim(),
+                description: '',
+                item_type: 'product',
+                unit: document.getElementById('spec-unit').value.trim() || 'Штуки',
+                is_promo: false,
+                price_rub: Number(document.getElementById('spec-price').value || 0),
+                cost_price_rub: 0,
+                sku: '',
+                barcode: '',
+                critical_stock: 0,
+                desired_stock: 0,
+                stock: 0,
+                track_inventory: true,
+                comment: document.getElementById('spec-comment').value.trim(),
+                images: [],
+              }};
+              if (!payload.name) {{
+                resultEl.textContent = 'Ошибка: заполните название товара.';
+                return;
+              }}
+              statusEl.textContent = 'сохранение';
+              try {{
+                const response = await fetch('/api/v1/admin/products', {{ method: 'POST', headers: apiHeaders(), body: JSON.stringify(payload) }});
+                const data = await readJson(response);
+                statusEl.textContent = response.ok ? 'сохранено' : 'ошибка';
+                resultEl.textContent = JSON.stringify({{ status: response.status, data }}, null, 2);
+                if (response.ok) await fetchProducts();
+              }} catch (e) {{
+                statusEl.textContent = 'ошибка';
+                resultEl.textContent = String(e);
+              }}
+            }});
+
+            document.getElementById('spec-list').addEventListener('click', async () => {{
+              await fetchProducts();
+              const rows = state.products.filter((x) => x.item_type === 'product').slice(0, 20).map((x) => `${{x.id}} — ${{x.name}}`).join('\n');
+              resultEl.textContent = rows || 'Список товаров пуст.';
+            }});
+          }}
+
+          function renderServiceCreate() {{
+            titleEl.textContent = 'Создание услуги';
+            const goods = state.products.filter((x) => x.item_type === 'product');
+            bodyEl.innerHTML = `
+              <div class="hint" style="margin-bottom:8px">Создание карточки услуги и привязка базового расходника (опционально).</div>
+              <div class="row">
+                <label>Название услуги<input id="svc-name" maxlength="100" placeholder="Например, Стрижка" /></label>
+                <label>Цена, ₽<input id="svc-price" type="number" min="0" value="0" /></label>
+              </div>
+              <div class="row">
+                <label>Длительность, минут<input id="svc-duration" type="number" min="5" value="60" /></label>
+                <label>Базовый материал<select id="svc-material"><option value="">Не выбран</option>${{optionRows(goods, 'id', 'name')}}</select></label>
+              </div>
+              <label>Комментарий<textarea id="svc-comment" rows="3"></textarea></label>
+              <div class="actions" style="margin-top:8px">
+                <button class="btn primary" id="svc-save">Создать услугу</button>
+              </div>
+              <pre id="svc-result" style="margin-top:8px">Ожидание...</pre>
+            `;
+
+            const resultEl = document.getElementById('svc-result');
+            document.getElementById('svc-save').addEventListener('click', async () => {{
+              const name = document.getElementById('svc-name').value.trim();
+              if (!name) {{
+                resultEl.textContent = 'Ошибка: заполните название услуги.';
+                return;
+              }}
+              statusEl.textContent = 'сохранение';
+              const payload = {{
+                name,
+                category: 'Услуги',
+                full_name: name,
+                receipt_name: name,
+                description: `Длительность: ${{Number(document.getElementById('svc-duration').value || 0)}} минут`,
+                item_type: 'service',
+                unit: 'Услуга',
+                is_promo: false,
+                price_rub: Number(document.getElementById('svc-price').value || 0),
+                cost_price_rub: 0,
+                sku: '',
+                barcode: '',
+                critical_stock: 0,
+                desired_stock: 0,
+                stock: 0,
+                track_inventory: false,
+                comment: document.getElementById('svc-comment').value.trim(),
+                images: [],
+              }};
+              try {{
+                const response = await fetch('/api/v1/admin/products', {{ method: 'POST', headers: apiHeaders(), body: JSON.stringify(payload) }});
+                const data = await readJson(response);
+                statusEl.textContent = response.ok ? 'сохранено' : 'ошибка';
+                resultEl.textContent = JSON.stringify({{ status: response.status, data }}, null, 2);
+                if (response.ok) await fetchProducts();
+              }} catch (e) {{
+                statusEl.textContent = 'ошибка';
+                resultEl.textContent = String(e);
+              }}
+            }});
+          }}
+
+          function renderServiceTechCard() {{
+            titleEl.textContent = 'Технологическая карточка услуги';
             const goods = state.products.filter((x) => x.item_type === 'product');
             bodyEl.innerHTML = `
               <div class="hint" style="margin-bottom:8px">Подтягиваем услуги/товары из блока «Товар» и дополняем нормой списания.</div>
@@ -884,8 +1026,68 @@ def _products_section_body(section: dict[str, str]) -> str:
             showSpec();
           }}
 
-          const renderers = {{ add: renderAddProduct, inventory: renderInventory, audit: renderInventoryAudit, spec: renderSpecification }};
+          async function renderServiceInventory() {{
+            titleEl.textContent = 'Инвентаризация товаров для оказания услуги';
+            bodyEl.innerHTML = `
+              <div class="hint" style="margin-bottom:8px">Сверка норм списания по техкартам с фактическими остатками материалов.</div>
+              <pre id="service-inventory-result">Загрузка...</pre>
+            `;
+            const resultEl = document.getElementById('service-inventory-result');
+            const goods = state.products.filter((x) => x.item_type === 'product');
+            const lines = goods.map((g) => `${{g.name}}: остаток ${{g.stock ?? 0}} ${{g.unit || ''}}`).join('\n');
+            resultEl.textContent = lines || 'Нет товаров для инвентаризации.';
+          }}
+
+          async function renderServiceMaterials() {{
+            titleEl.textContent = 'Учет наличия материалов для оказания услуги';
+            bodyEl.innerHTML = `
+              <div class="hint" style="margin-bottom:8px">Контроль наличия материалов, необходимых для выполнения услуг.</div>
+              <pre id="service-materials-result">Загрузка...</pre>
+            `;
+            const resultEl = document.getElementById('service-materials-result');
+            const goods = state.products.filter((x) => x.item_type === 'product');
+            const deficit = goods.filter((g) => Number(g.stock || 0) <= Number(g.critical_stock || 0));
+            resultEl.textContent = deficit.length
+              ? deficit.map((g) => `${{g.name}}: остаток ${{g.stock || 0}}, критический минимум ${{g.critical_stock || 0}}`).join('\n')
+              : 'Критических позиций не найдено.';
+          }}
+
+          const screenModes = {{
+            add: 'goods',
+            inventory: 'goods',
+            audit: 'goods',
+            spec: 'goods',
+            'service-create': 'services',
+            'service-tech-card': 'services',
+            'service-inventory': 'services',
+            'service-materials': 'services',
+          }};
+          const renderers = {{
+            add: renderAddProduct,
+            inventory: renderInventory,
+            audit: renderInventoryAudit,
+            spec: renderSpecification,
+            'service-create': renderServiceCreate,
+            'service-tech-card': renderServiceTechCard,
+            'service-inventory': renderServiceInventory,
+            'service-materials': renderServiceMaterials,
+          }};
+
+          function setMode(mode) {{
+            currentMode = mode;
+            modeHintEl.textContent = mode === 'services' ? 'услуги' : 'товары';
+            document.querySelectorAll('[data-products-mode]').forEach((b) => {{
+              b.classList.toggle('primary', b.getAttribute('data-products-mode') === mode);
+            }});
+            document.querySelectorAll('[data-products-screen]').forEach((b) => {{
+              const screen = b.getAttribute('data-products-screen');
+              const btnMode = screenModes[screen] || 'goods';
+              b.style.display = btnMode === mode ? '' : 'none';
+            }});
+          }}
+
           function activateScreen(screen) {{
+            setMode(screenModes[screen] || 'goods');
             document.querySelectorAll('[data-products-screen]').forEach((b) => {{
               b.classList.toggle('primary', b.getAttribute('data-products-screen') === screen);
             }});
@@ -900,6 +1102,15 @@ def _products_section_body(section: dict[str, str]) -> str:
 
           document.querySelectorAll('[data-products-screen]').forEach((b) => {{
             b.addEventListener('click', () => activateScreen(b.getAttribute('data-products-screen')));
+          }});
+
+          document.querySelectorAll('[data-products-mode]').forEach((b) => {{
+            b.addEventListener('click', () => {{
+              const mode = b.getAttribute('data-products-mode') || 'goods';
+              setMode(mode);
+              const fallbackScreen = mode === 'services' ? 'service-create' : 'add';
+              activateScreen(fallbackScreen);
+            }});
           }});
 
           (async () => {{
