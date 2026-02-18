@@ -1119,7 +1119,7 @@ def _products_section_body(section: dict[str, str]) -> str:
 
             document.getElementById('spec-list').addEventListener('click', async () => {{
               await fetchProducts();
-              const rows = state.products.filter((x) => x.item_type === 'product').slice(0, 20).map((x) => `${{x.id}} — ${{x.name}}`).join('\n');
+              const rows = state.products.filter((x) => x.item_type === 'product').slice(0, 20).map((x) => `${{x.id}} — ${{x.name}}`).join('\\n');
               resultEl.textContent = rows || 'Список товаров пуст.';
             }});
           }}
@@ -1251,7 +1251,7 @@ def _products_section_body(section: dict[str, str]) -> str:
             `;
             const resultEl = document.getElementById('service-inventory-result');
             const goods = state.products.filter((x) => x.item_type === 'product');
-            const lines = goods.map((g) => `${{g.name}}: остаток ${{g.stock ?? 0}} ${{g.unit || ''}}`).join('\n');
+            const lines = goods.map((g) => `${{g.name}}: остаток ${{g.stock ?? 0}} ${{g.unit || ''}}`).join('\\n');
             resultEl.textContent = lines || 'Нет товаров для инвентаризации.';
           }}
 
@@ -1265,7 +1265,7 @@ def _products_section_body(section: dict[str, str]) -> str:
             const goods = state.products.filter((x) => x.item_type === 'product');
             const deficit = goods.filter((g) => Number(g.stock || 0) <= Number(g.critical_stock || 0));
             resultEl.textContent = deficit.length
-              ? deficit.map((g) => `${{g.name}}: остаток ${{g.stock || 0}}, критический минимум ${{g.critical_stock || 0}}`).join('\n')
+              ? deficit.map((g) => `${{g.name}}: остаток ${{g.stock || 0}}, критический минимум ${{g.critical_stock || 0}}`).join('\\n')
               : 'Критических позиций не найдено.';
           }}
 
